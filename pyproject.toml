@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "clipx"
-version = "0.1.0"
+version = "0.1.3"
 description = "Image background removal tool supporting U2Net and CascadePSP models"
 readme = "README.md"
 authors = [
@@ -44,10 +44,17 @@ dependencies = [
 clipx = "clipx.cli:main"
 
 [tool.setuptools]
-packages = ["clipx"]
+packages = [
+    "clipx",
+    "clipx.commands",
+    "clipx.models",
+    "clipx.models.cascadepsp",
+    "clipx.models.cascadepsp.models",
+    "clipx.models.cascadepsp.models.psp"
+]
 
 [tool.setuptools.package-data]
-clipx = ["models/**/*.py"]
+clipx = ["**/*.py", "**/*.pyi"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

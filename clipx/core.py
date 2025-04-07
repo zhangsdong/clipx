@@ -128,12 +128,6 @@ def process_command(options):
     Args:
         options: Dictionary of command line options
     """
-    # Handle version option
-    if options.get('version'):
-        from clipx import __version__
-        print(f"clipx version {__version__}")
-        return
-
     input_path = options.get('input')
     output_path = options.get('output')
     model_name = options.get('model', 'auto')

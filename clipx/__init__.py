@@ -1,8 +1,8 @@
 """
-clipx - Image background removal tool
-
-Supports command line and Python API usage.
-Provides U2Net and CascadePSP models for image background removal.
+Clipx - Image background removal and mask generation tool.
 """
 
-__version__ = '0.1.4'
+from clipx.core import Clipx
+
+__version__ = '0.1.13'
+__all__ = ['Clipx']

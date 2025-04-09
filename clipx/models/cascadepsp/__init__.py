@@ -20,16 +20,40 @@ class CascadePSPModel(BaseModel):
         """
         Initialize CascadePSP model
         """
+        super().__init__()
+        self.name = "cascadepsp"
         self.model = None
         self.device = 'cpu'
 
-    def load(self, device='cpu'):
+    def load(self, device='auto'):
         """
         Load CascadePSP model to specified device
 
         Args:
-            device: Device to load model to ('cpu' or 'cuda')
+            device: Device to load model to ('auto', 'cpu' or 'cuda')
+                   When 'auto', GPU will be used if available
         """
+        # Determine the best device to use
+        if device == 'auto':
+            try:
+                import torch
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                print(f"Automatically selected device: {device}")
+            except ImportError:
+                device = 'cpu'
+                print("PyTorch not available, falling back to CPU")
+        elif device == 'cuda':
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    print("CUDA requested but not available, falling back to CPU")
+                    device = 'cpu'
+                else:
+                    print("Using CUDA for inference")
+            except ImportError:
+                print("PyTorch not available, falling back to CPU")
+                device = 'cpu'
+
         self.device = device
         # Only initialize the model when needed
         if self.model is None:
@@ -37,7 +61,7 @@ class CascadePSPModel(BaseModel):
             self.model = Refiner(device=device)
         return self
 
-    def process(self, image, mask=None, fast=False, **kwargs):
+    def process(self, image, mask=None, fast=False):
         """
         Refine segmentation mask of the input image
 
@@ -47,17 +71,25 @@ class CascadePSPModel(BaseModel):
             fast: Whether to use fast mode (default: False)
 
         Returns:
-            Refined mask as numpy array
+            Refined mask as PIL Image
         """
         if self.model is None:
             self.load(self.device)
 
-        # Convert PIL images to numpy arrays if needed
-        image_np = self.prepare_image(image)
-        mask_np = self.prepare_mask(mask)
-
-        if mask_np is None:
+        # Check if mask is provided
+        if mask is None:
             raise ValueError("CascadePSP requires a mask image for refinement")
+
+        # Convert PIL images to numpy arrays
+        if isinstance(image, Image.Image):
+            image_np = np.array(image)
+        else:
+            image_np = image
+
+        if isinstance(mask, Image.Image):
+            mask_np = np.array(mask)
+        else:
+            mask_np = mask
 
         # Make sure image is RGB
         if len(image_np.shape) == 2:  # Grayscale image
@@ -66,6 +98,21 @@ class CascadePSPModel(BaseModel):
             image_np = image_np[:, :, :3]
 
         # Process the image and mask
-        refined_mask = self.model.refine(image_np, mask_np, fast=fast)
+        try:
+            print(f"Processing mask with shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+            refined_mask_np = self.model.refine(image_np, mask_np, fast=fast)
 
-        return refined_mask
+            # Convert back to PIL Image
+            refined_mask = Image.fromarray(refined_mask_np)
+
+            return refined_mask
+        except Exception as e:
+            print(f"Error in CascadePSP refinement: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to original mask if refinement fails
+            print("Falling back to original mask")
+            if isinstance(mask, Image.Image):
+                return mask
+            else:
+                return Image.fromarray(mask_np)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clipx"
-version = "0.1.4"
+version = "0.1.13"
 description = "Image background removal tool supporting U2Net and CascadePSP models"
 readme = "README.md"
 authors = [
@@ -17,14 +17,16 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8,<3.14"
 dependencies = [
     "torch>=1.7.0",
     "torchvision>=0.8.0",
@@ -33,6 +35,8 @@ dependencies = [
     "click>=7.1.2",
     "requests>=2.25.0",
     "tqdm>=4.50.0",
+    "onnxruntime>=1.8.0",
+    "pooch>=1.3.0",
 ]
 
 [project.urls]
@@ -46,11 +50,11 @@ clipx = "clipx.cli:main"
 [tool.setuptools]
 packages = [
     "clipx",
-    "clipx.commands",
     "clipx.models",
     "clipx.models.cascadepsp",
     "clipx.models.cascadepsp.models",
-    "clipx.models.cascadepsp.models.psp"
+    "clipx.models.cascadepsp.models.psp",
+    "clipx.models.u2net"
 ]
 
 [tool.setuptools.package-data]
@@ -62,7 +66,7 @@ python_files = "test_*.py"
 
 [tool.black]
 line-length = 88
-target-version = ['py37']
+target-version = ['py38']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -70,7 +74,7 @@ profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

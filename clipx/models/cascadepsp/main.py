@@ -68,14 +68,41 @@ class Refiner:
         L - Hyperparameter. Setting a lower value reduces memory usage. In fast mode, a lower L will make it runs faster as well.
         """
         with torch.no_grad():
-            image = self.im_transform(image).unsqueeze(0).to(self.device)
-            mask = self.seg_transform((mask>127).astype(np.uint8)*255).unsqueeze(0).to(self.device)
-            if len(mask.shape) < 4:
-                mask = mask.unsqueeze(0)
+            # 确保图像是三维 [H, W, 3]
+            if len(image.shape) == 2:
+                image = np.stack([image] * 3, axis=2)
+            elif image.shape[2] == 4:
+                image = image[:, :, :3]
 
-            if fast:
-                output = process_im_single_pass(self.model, image, mask, L)
-            else:
-                output = process_high_res_im(self.model, image, mask, L)
+            # 确保掩码是二维 [H, W]
+            if len(mask.shape) == 3 and mask.shape[2] == 1:
+                mask = mask[:, :, 0]
+            elif len(mask.shape) > 2:
+                # 如果掩码有多个通道，取第一个通道
+                mask = mask[:, :, 0]
 
-            return (output[0,0].cpu().numpy()*255).astype('uint8')
+            # 转换为张量
+            try:
+                image_tensor = self.im_transform(image).unsqueeze(0).to(self.device)
+                # 先转为二值掩码，再转为张量
+                binary_mask = (mask > 127).astype(np.uint8) * 255
+                mask_tensor = self.seg_transform(binary_mask).unsqueeze(0).to(self.device)
+
+                if len(mask_tensor.shape) < 4:
+                    mask_tensor = mask_tensor.unsqueeze(0)
+
+                # 根据模式选择处理方法
+                if fast:
+                    output = process_im_single_pass(self.model, image_tensor, mask_tensor, L)
+                else:
+                    output = process_high_res_im(self.model, image_tensor, mask_tensor, L)
+
+                # 转回numpy数组
+                result = (output[0, 0].cpu().numpy() * 255).astype('uint8')
+                return result
+            except Exception as e:
+                print(f"Error in refine method: {e}")
+                import traceback
+                traceback.print_exc()
+                # 出错时返回原始掩码
+                return binary_mask if 'binary_mask' in locals() else ((mask > 127).astype(np.uint8) * 255)

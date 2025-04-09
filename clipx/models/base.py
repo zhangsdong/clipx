@@ -1,48 +1,42 @@
-from abc import ABC, abstractmethod
-import os
-import numpy as np
-from PIL import Image
+"""
+Base model class for all models.
+"""
 
 
-class BaseModel(ABC):
+class BaseModel:
     """
-    Base class for all models in clipx
+    Base class for all models.
     """
 
-    @abstractmethod
-    def load(self, device='cpu'):
+    def __init__(self):
         """
-        Load model to specified device
+        Initialize the base model.
         """
-        pass
+        self.name = "base"
 
-    @abstractmethod
-    def process(self, image, mask=None, **kwargs):
+    def load(self, device='auto'):
         """
-        Process the image with the model
+        Load the model.
+
         Args:
-            image: Input image (PIL Image or numpy array)
-            mask: Optional mask image (PIL Image or numpy array)
-            **kwargs: Additional model-specific parameters
+            device: Device to load the model on ('auto', 'cpu' or 'cuda')
+                   When 'auto', GPU will be used if available
+
         Returns:
-            Processed image or mask
+            self: The model instance
         """
-        pass
+        raise NotImplementedError("Subclasses must implement load()")
 
-    def prepare_image(self, image):
+    def process(self, img, mask=None, fast=False):
         """
-        Convert image to numpy array if it's a PIL Image
-        """
-        if isinstance(image, Image.Image):
-            return np.array(image)
-        return image
+        Process the input image.
 
-    def prepare_mask(self, mask):
+        Args:
+            img: PIL Image to process
+            mask: Optional existing mask
+            fast: Whether to use fast mode
+
+        Returns:
+            PIL Image: The result
         """
-        Convert mask to numpy array if it's a PIL Image
-        """
-        if mask is None:
-            return None
-        if isinstance(mask, Image.Image):
-            return np.array(mask)
-        return mask
+        raise NotImplementedError("Subclasses must implement process()")

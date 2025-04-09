@@ -1,156 +1,262 @@
+"""
+Core processing module for clipx.
+"""
+
 import os
-import torch
-from pathlib import Path
-import sys
+import time
+from PIL import Image
+import logging
 
-from clipx.models import get_model
-from clipx.commands import get_output_path
-from clipx.utils import (
-    load_image,
-    load_mask,
-    save_image,
-    apply_mask_to_image,
-    is_image_file
-)
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-
-def process_single_image(input_path, output_path=None, model_name='auto', use_mask=None,
-                         only_mask=False, fast=False):
+class Clipx:
     """
-    Process a single image with the specified model
-
-    Args:
-        input_path: Path to input image
-        output_path: Path to output image or None to use default
-        model_name: Name of model to use
-        use_mask: Path to existing mask or None
-        only_mask: Whether to output only the mask
-        fast: Whether to use fast mode for CascadePSP
+    Main class for image processing with U2Net and CascadePSP.
     """
-    # Generate output path if not provided
-    if output_path is None:
-        output_path = get_output_path(input_path)
 
-    # Choose device (use CUDA if available)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    def __init__(self, device='auto'):
+        """
+        Initialize the processing pipeline.
 
-    # Load input image
-    input_image = load_image(input_path)
+        Args:
+            device: Device to use for processing ('auto', 'cpu' or 'cuda')
+                   When 'auto', GPU will be used if available
+        """
+        self.device = device
+        self.u2net = None
+        self.cascadepsp = None
+        logger.info(f"Initializing Clipx with device preference: {device}")
 
-    # Load mask if provided
-    mask = load_mask(use_mask)
+    def load_u2net(self):
+        """
+        Load the U2Net model.
+        """
+        if self.u2net is None:
+            from clipx.models.u2net import U2Net
+            logger.info("Loading U2Net model")
+            self.u2net = U2Net().load(device=self.device)
+        return self.u2net
 
-    # Get the appropriate model
-    model = get_model(model_name).load(device)
+    def load_cascadepsp(self):
+        """
+        Load the CascadePSP model.
+        """
+        if self.cascadepsp is None:
+            from clipx.models.cascadepsp import CascadePSPModel
+            logger.info("Loading CascadePSP model")
+            self.cascadepsp = CascadePSPModel().load(device=self.device)
+        return self.cascadepsp
 
-    # If model is CascadePSP and no mask is provided, error
-    if model_name == 'cascadepsp' and mask is None:
-        print("Error: CascadePSP requires a mask. Please provide one with --use-mask.")
-        sys.exit(1)
+    def process(self, input_path, output_path, model='combined', threshold=130, fast_mode=False):
+        """
+        Process an image using the selected model(s).
 
-    # Process with model
-    if model_name == 'cascadepsp':
-        refined_mask = model.process(input_image, mask, fast=fast)
+        Args:
+            input_path: Path to input image
+            output_path: Path to save the output image
+            model: Model to use ('u2net', 'cascadepsp', or 'combined')
+            threshold: Threshold for binary mask generation (0-255)
+            fast_mode: Whether to use fast mode for CascadePSP
+
+        Returns:
+            Path to the output image
+        """
+        logger.info(f"Processing image: {input_path} with model: {model}")
+
+        # 开始计时
+        start_time = time.time()
+
+        # Load input image
+        try:
+            img = Image.open(input_path).convert("RGB")
+            logger.info(f"Image loaded: {img.size[0]}x{img.size[1]}")
+        except Exception as e:
+            logger.error(f"Failed to load image: {e}")
+            raise ValueError(f"Failed to load image: {e}")
+
+        # 记录图像加载时间
+        load_time = time.time() - start_time
+        logger.info(f"Image loading time: {load_time:.2f} seconds")
+
+        # Process based on selected model
+        try:
+            if model == 'u2net':
+                result = self._process_u2net(img, output_path, threshold)
+            elif model == 'cascadepsp':
+                result = self._process_cascadepsp(img, output_path, threshold, fast_mode)
+            elif model == 'combined':
+                result = self._process_combined(img, output_path, threshold, fast_mode)
+            else:
+                raise ValueError(f"Unknown model: {model}")
+        finally:
+            # 记录总处理时间
+            total_time = time.time() - start_time
+            logger.info(f"Total processing time: {total_time:.2f} seconds")
+
+        return result
+
+    def _process_u2net(self, img, output_path, threshold):
+        """
+        Process with U2Net only.
+        """
+        # 开始计时
+        start_time = time.time()
+
+        # Load model
+        u2net = self.load_u2net()
+        model_load_time = time.time() - start_time
+        logger.info(f"U2Net model load time: {model_load_time:.2f} seconds")
+
+        # Generate mask and remove background
+        logger.info("Generating binary mask with U2Net")
+        mask_start_time = time.time()
+        binary_mask = u2net.get_binary_mask(img, threshold)
+        mask_time = time.time() - mask_start_time
+        logger.info(f"U2Net mask generation time: {mask_time:.2f} seconds")
 
         # Save result
-        if only_mask:
-            save_image(refined_mask, output_path)
-            print(f"Mask saved to {output_path}")
+        save_start_time = time.time()
+        if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+            # Remove background
+            logger.info("Removing background with binary mask")
+            result = Image.composite(img.convert("RGBA"),
+                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                    binary_mask)
+            result.save(output_path)
         else:
-            # Apply refined mask to input image
-            result_image = apply_mask_to_image(input_image, refined_mask)
-            save_image(result_image, output_path)
-            print(f"Image with refined mask saved to {output_path}")
+            # Save mask directly
+            binary_mask.save(output_path)
 
-    # U2Net and auto model handling will be implemented later
-    else:
-        print(f"Model {model_name} not fully implemented yet")
-        sys.exit(1)
+        save_time = time.time() - save_start_time
+        logger.info(f"Save result time: {save_time:.2f} seconds")
 
+        # 总处理时间
+        total_time = time.time() - start_time
+        logger.info(f"U2Net processing completed in {total_time:.2f} seconds")
 
-def process_directory(input_dir, output_dir=None, model_name='auto', use_mask=None,
-                      only_mask=False, fast=False):
-    """
-    Process all images in a directory
+        return output_path
 
-    Args:
-        input_dir: Directory containing input images
-        output_dir: Directory for output images or None to use input_dir
-        model_name: Name of model to use
-        use_mask: Path to existing mask directory or None
-        only_mask: Whether to output only masks
-        fast: Whether to use fast mode for CascadePSP
-    """
-    input_dir = Path(input_dir)
+    def _process_cascadepsp(self, img, output_path, threshold, fast_mode):
+        """
+        Process with CascadePSP only.
 
-    # Use input directory as output if not specified
-    if output_dir is None:
-        output_dir = input_dir
-    else:
-        output_dir = Path(output_dir)
-        os.makedirs(output_dir, exist_ok=True)
+        Note: CascadePSP requires a binary mask as input, so we need to generate
+        a mask first using a simple thresholding method.
+        """
+        # 开始计时
+        start_time = time.time()
 
-    # Get all image files in the directory
-    image_files = [f for f in input_dir.iterdir() if f.is_file() and is_image_file(str(f))]
+        # Load model
+        cascadepsp = self.load_cascadepsp()
+        model_load_time = time.time() - start_time
+        logger.info(f"CascadePSP model load time: {model_load_time:.2f} seconds")
 
-    if not image_files:
-        print(f"No image files found in {input_dir}")
-        return
+        # Generate a simple mask (grayscale conversion and thresholding)
+        logger.info("Generating simple mask for CascadePSP input")
+        mask_start_time = time.time()
+        gray = img.convert("L")
+        simple_mask = gray.point(lambda p: 255 if p > threshold else 0)
+        mask_time = time.time() - mask_start_time
+        logger.info(f"Simple mask generation time: {mask_time:.2f} seconds")
 
-    # Process each image
-    for img_path in image_files:
-        rel_path = img_path.relative_to(input_dir)
-        out_path = output_dir / rel_path
+        # Refine mask with CascadePSP
+        logger.info(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
+        refine_start_time = time.time()
+        try:
+            refined_mask = cascadepsp.process(
+                image=img,
+                mask=simple_mask,
+                fast=fast_mode
+            )
+            refine_time = time.time() - refine_start_time
+            logger.info(f"CascadePSP refinement time: {refine_time:.2f} seconds")
+        except Exception as e:
+            logger.error(f"CascadePSP processing failed: {e}")
+            refined_mask = simple_mask
+            logger.info("Using simple mask instead")
 
-        # If use_mask is a directory, look for corresponding mask
-        mask_path = None
-        if use_mask and os.path.isdir(use_mask):
-            mask_file = Path(use_mask) / rel_path
-            if mask_file.exists():
-                mask_path = str(mask_file)
-        elif use_mask:
-            mask_path = use_mask
+        # Save result
+        save_start_time = time.time()
+        if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+            # Remove background
+            logger.info("Removing background with refined mask")
+            result = Image.composite(img.convert("RGBA"),
+                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                    refined_mask)
+            result.save(output_path)
+        else:
+            # Save mask directly
+            refined_mask.save(output_path)
 
-        process_single_image(
-            str(img_path),
-            str(out_path),
-            model_name,
-            mask_path,
-            only_mask,
-            fast
-        )
+        save_time = time.time() - save_start_time
+        logger.info(f"Save result time: {save_time:.2f} seconds")
 
+        # 总处理时间
+        total_time = time.time() - start_time
+        logger.info(f"CascadePSP processing completed in {total_time:.2f} seconds")
 
-def process_command(options):
-    """
-    Process command line options
+        return output_path
 
-    Args:
-        options: Dictionary of command line options
-    """
-    input_path = options.get('input')
-    output_path = options.get('output')
-    model_name = options.get('model', 'auto')
-    use_mask = options.get('use_mask')
-    only_mask = options.get('only_mask', False)
-    fast = options.get('fast', False)
+    def _process_combined(self, img, output_path, threshold, fast_mode):
+        """
+        Process with combined U2Net and CascadePSP.
+        """
+        # 开始计时
+        start_time = time.time()
 
-    # Process directory or single file
-    if os.path.isdir(input_path):
-        process_directory(
-            input_path,
-            output_path,
-            model_name,
-            use_mask,
-            only_mask,
-            fast
-        )
-    else:
-        process_single_image(
-            input_path,
-            output_path,
-            model_name,
-            use_mask,
-            only_mask,
-            fast
-        )
+        # Load models
+        u2net = self.load_u2net()
+        cascadepsp = self.load_cascadepsp()
+        model_load_time = time.time() - start_time
+        logger.info(f"Combined models load time: {model_load_time:.2f} seconds")
+
+        # Generate mask with U2Net
+        logger.info("Generating binary mask with U2Net")
+        u2net_start_time = time.time()
+        binary_mask = u2net.get_binary_mask(img, threshold)
+        u2net_time = time.time() - u2net_start_time
+        logger.info(f"U2Net mask generation time: {u2net_time:.2f} seconds")
+
+        try:
+            # Refine mask with CascadePSP
+            logger.info(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
+            cascadepsp_start_time = time.time()
+            refined_mask = cascadepsp.process(
+                image=img,
+                mask=binary_mask,
+                fast=fast_mode
+            )
+            cascadepsp_time = time.time() - cascadepsp_start_time
+            logger.info(f"CascadePSP refinement time: {cascadepsp_time:.2f} seconds")
+
+            # 确保refined_mask是PIL Image对象
+            if not isinstance(refined_mask, Image.Image):
+                logger.warning("CascadePSP返回的不是PIL Image对象，尝试转换")
+                refined_mask = Image.fromarray(refined_mask)
+        except Exception as e:
+            logger.error(f"CascadePSP处理失败: {e}，使用U2Net生成的掩码")
+            refined_mask = binary_mask
+
+        # Save result
+        save_start_time = time.time()
+        if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+            # Remove background
+            logger.info("Removing background with mask")
+            result = Image.composite(img.convert("RGBA"),
+                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                    refined_mask)
+            result.save(output_path)
+        else:
+            # Save mask directly
+            refined_mask.save(output_path)
+
+        save_time = time.time() - save_start_time
+        logger.info(f"Save result time: {save_time:.2f} seconds")
+
+        # 总处理时间
+        total_time = time.time() - start_time
+        logger.info(f"Combined processing completed in {total_time:.2f} seconds")
+
+        return output_path

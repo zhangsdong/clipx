@@ -10,6 +10,7 @@ import logging
 # Configure logger
 logger = logging.getLogger("clipx.core")
 
+
 class Clipx:
     """
     Main class for image processing with U2Net and CascadePSP.
@@ -26,7 +27,7 @@ class Clipx:
         self.device = device
         self.u2net = None
         self.cascadepsp = None
-        logger.info(f"Initializing Clipx with device preference: {device}")
+        logger.debug(f"Initializing Clipx with device preference: {device}")
 
     def load_u2net(self):
         """
@@ -34,7 +35,7 @@ class Clipx:
         """
         if self.u2net is None:
             from clipx.models.u2net import U2Net
-            logger.info("Loading U2Net model")
+            logger.debug("Loading U2Net model")
             self.u2net = U2Net().load(device=self.device)
         return self.u2net
 
@@ -44,7 +45,7 @@ class Clipx:
         """
         if self.cascadepsp is None:
             from clipx.models.cascadepsp import CascadePSPModel
-            logger.info("Loading CascadePSP model")
+            logger.debug("Loading CascadePSP model")
             self.cascadepsp = CascadePSPModel().load(device=self.device)
         return self.cascadepsp
 
@@ -60,24 +61,24 @@ class Clipx:
             fast_mode: Whether to use fast mode for CascadePSP
 
         Returns:
-            Path to the output image
+            Tuple (output_path, processing_time): Path to the output image and processing time in seconds
         """
-        logger.info(f"Processing image: {input_path} with model: {model}")
+        logger.debug(f"Processing image: {input_path} with model: {model}")
 
-        # 开始计时
+        # Start timing
         start_time = time.time()
 
         # Load input image
         try:
             img = Image.open(input_path).convert("RGB")
-            logger.info(f"Image loaded: {img.size[0]}x{img.size[1]}")
+            logger.debug(f"Image loaded: {img.size[0]}x{img.size[1]}")
         except Exception as e:
             logger.error(f"Failed to load image: {e}")
             raise ValueError(f"Failed to load image: {e}")
 
-        # 记录图像加载时间
+        # Record image loading time
         load_time = time.time() - start_time
-        logger.info(f"Image loading time: {load_time:.2f} seconds")
+        logger.debug(f"Image loading time: {load_time:.2f} seconds")
 
         # Process based on selected model
         try:
@@ -89,51 +90,57 @@ class Clipx:
                 result = self._process_combined(img, output_path, threshold, fast_mode)
             else:
                 raise ValueError(f"Unknown model: {model}")
-        finally:
-            # 记录总处理时间
-            total_time = time.time() - start_time
-            logger.info(f"Total processing time: {total_time:.2f} seconds")
 
-        return result
+            # Calculate total processing time
+            total_time = time.time() - start_time
+            logger.debug(f"Total processing time: {total_time:.2f} seconds")
+
+            # Return result path and processing time
+            return result, total_time
+
+        except Exception as e:
+            logger.error(f"Processing error: {e}")
+            # Re-raise the exception for upper layer handling
+            raise
 
     def _process_u2net(self, img, output_path, threshold):
         """
         Process with U2Net only.
         """
-        # 开始计时
+        # Start timing
         start_time = time.time()
 
         # Load model
         u2net = self.load_u2net()
         model_load_time = time.time() - start_time
-        logger.info(f"U2Net model load time: {model_load_time:.2f} seconds")
+        logger.debug(f"U2Net model load time: {model_load_time:.2f} seconds")
 
         # Generate mask and remove background
-        logger.info("Generating binary mask with U2Net")
+        logger.debug("Generating binary mask with U2Net")
         mask_start_time = time.time()
         binary_mask = u2net.get_binary_mask(img, threshold)
         mask_time = time.time() - mask_start_time
-        logger.info(f"U2Net mask generation time: {mask_time:.2f} seconds")
+        logger.debug(f"U2Net mask generation time: {mask_time:.2f} seconds")
 
         # Save result
         save_start_time = time.time()
         if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
             # Remove background
-            logger.info("Removing background with binary mask")
+            logger.debug("Removing background with binary mask")
             result = Image.composite(img.convert("RGBA"),
-                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
-                                    binary_mask)
+                                     Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                     binary_mask)
             result.save(output_path)
         else:
             # Save mask directly
             binary_mask.save(output_path)
 
         save_time = time.time() - save_start_time
-        logger.info(f"Save result time: {save_time:.2f} seconds")
+        logger.debug(f"Save result time: {save_time:.2f} seconds")
 
-        # 总处理时间
+        # Total processing time
         total_time = time.time() - start_time
-        logger.info(f"U2Net processing completed in {total_time:.2f} seconds")
+        logger.debug(f"U2Net processing completed in {total_time:.2f} seconds")
 
         return output_path
 
@@ -144,24 +151,24 @@ class Clipx:
         Note: CascadePSP requires a binary mask as input, so we need to generate
         a mask first using a simple thresholding method.
         """
-        # 开始计时
+        # Start timing
         start_time = time.time()
 
         # Load model
         cascadepsp = self.load_cascadepsp()
         model_load_time = time.time() - start_time
-        logger.info(f"CascadePSP model load time: {model_load_time:.2f} seconds")
+        logger.debug(f"CascadePSP model load time: {model_load_time:.2f} seconds")
 
         # Generate a simple mask (grayscale conversion and thresholding)
-        logger.info("Generating simple mask for CascadePSP input")
+        logger.debug("Generating simple mask for CascadePSP input")
         mask_start_time = time.time()
         gray = img.convert("L")
         simple_mask = gray.point(lambda p: 255 if p > threshold else 0)
         mask_time = time.time() - mask_start_time
-        logger.info(f"Simple mask generation time: {mask_time:.2f} seconds")
+        logger.debug(f"Simple mask generation time: {mask_time:.2f} seconds")
 
         # Refine mask with CascadePSP
-        logger.info(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
+        logger.debug(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
         refine_start_time = time.time()
         try:
             refined_mask = cascadepsp.process(
@@ -170,31 +177,31 @@ class Clipx:
                 fast=fast_mode
             )
             refine_time = time.time() - refine_start_time
-            logger.info(f"CascadePSP refinement time: {refine_time:.2f} seconds")
+            logger.debug(f"CascadePSP refinement time: {refine_time:.2f} seconds")
         except Exception as e:
             logger.error(f"CascadePSP processing failed: {e}")
             refined_mask = simple_mask
-            logger.info("Using simple mask instead")
+            logger.debug("Using simple mask instead")
 
         # Save result
         save_start_time = time.time()
         if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
             # Remove background
-            logger.info("Removing background with refined mask")
+            logger.debug("Removing background with refined mask")
             result = Image.composite(img.convert("RGBA"),
-                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
-                                    refined_mask)
+                                     Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                     refined_mask)
             result.save(output_path)
         else:
             # Save mask directly
             refined_mask.save(output_path)
 
         save_time = time.time() - save_start_time
-        logger.info(f"Save result time: {save_time:.2f} seconds")
+        logger.debug(f"Save result time: {save_time:.2f} seconds")
 
-        # 总处理时间
+        # Total processing time
         total_time = time.time() - start_time
-        logger.info(f"CascadePSP processing completed in {total_time:.2f} seconds")
+        logger.debug(f"CascadePSP processing completed in {total_time:.2f} seconds")
 
         return output_path
 
@@ -202,25 +209,25 @@ class Clipx:
         """
         Process with combined U2Net and CascadePSP.
         """
-        # 开始计时
+        # Start timing
         start_time = time.time()
 
         # Load models
         u2net = self.load_u2net()
         cascadepsp = self.load_cascadepsp()
         model_load_time = time.time() - start_time
-        logger.info(f"Combined models load time: {model_load_time:.2f} seconds")
+        logger.debug(f"Combined models load time: {model_load_time:.2f} seconds")
 
         # Generate mask with U2Net
-        logger.info("Generating binary mask with U2Net")
+        logger.debug("Generating binary mask with U2Net")
         u2net_start_time = time.time()
         binary_mask = u2net.get_binary_mask(img, threshold)
         u2net_time = time.time() - u2net_start_time
-        logger.info(f"U2Net mask generation time: {u2net_time:.2f} seconds")
+        logger.debug(f"U2Net mask generation time: {u2net_time:.2f} seconds")
 
         try:
             # Refine mask with CascadePSP
-            logger.info(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
+            logger.debug(f"Refining mask with CascadePSP (fast mode: {fast_mode})")
             cascadepsp_start_time = time.time()
             refined_mask = cascadepsp.process(
                 image=img,
@@ -228,34 +235,34 @@ class Clipx:
                 fast=fast_mode
             )
             cascadepsp_time = time.time() - cascadepsp_start_time
-            logger.info(f"CascadePSP refinement time: {cascadepsp_time:.2f} seconds")
+            logger.debug(f"CascadePSP refinement time: {cascadepsp_time:.2f} seconds")
 
-            # 确保refined_mask是PIL Image对象
+            # Ensure refined_mask is a PIL Image object
             if not isinstance(refined_mask, Image.Image):
-                logger.warning("CascadePSP返回的不是PIL Image对象，尝试转换")
+                logger.warning("CascadePSP result is not a PIL Image object, attempting conversion")
                 refined_mask = Image.fromarray(refined_mask)
         except Exception as e:
-            logger.error(f"CascadePSP处理失败: {e}，使用U2Net生成的掩码")
+            logger.error(f"CascadePSP processing failed: {e}, using U2Net mask instead")
             refined_mask = binary_mask
 
         # Save result
         save_start_time = time.time()
         if output_path.lower().endswith(('.png', '.jpg', '.jpeg')):
             # Remove background
-            logger.info("Removing background with mask")
+            logger.debug("Removing background with mask")
             result = Image.composite(img.convert("RGBA"),
-                                    Image.new("RGBA", img.size, (0, 0, 0, 0)),
-                                    refined_mask)
+                                     Image.new("RGBA", img.size, (0, 0, 0, 0)),
+                                     refined_mask)
             result.save(output_path)
         else:
             # Save mask directly
             refined_mask.save(output_path)
 
         save_time = time.time() - save_start_time
-        logger.info(f"Save result time: {save_time:.2f} seconds")
+        logger.debug(f"Save result time: {save_time:.2f} seconds")
 
-        # 总处理时间
+        # Total processing time
         total_time = time.time() - start_time
-        logger.info(f"Combined processing completed in {total_time:.2f} seconds")
+        logger.debug(f"Combined processing completed in {total_time:.2f} seconds")
 
         return output_path

@@ -35,7 +35,7 @@ def download_u2net_model():
     # Check if valid model already exists
     skip_checksum = os.environ.get('MODEL_CHECKSUM_DISABLED') is not None
     if os.path.exists(model_path) and (skip_checksum or _is_valid_model(model_path)):
-        logger.info("Using existing U2Net model")
+        logger.debug("Using existing U2Net model")
         return model_path
 
     # Download model
@@ -52,7 +52,7 @@ def download_u2net_model():
                     downloaded += len(chunk)
                     # Only show progress at 25% intervals
                     if total_size > 0 and downloaded % (total_size // 4) < 8192:
-                        logger.info(f"Download progress: {downloaded / total_size * 100:.0f}%")
+                        logger.debug(f"Download progress: {downloaded / total_size * 100:.0f}%")
 
         # Verify downloaded model
         if not skip_checksum and not _is_valid_model(model_path):

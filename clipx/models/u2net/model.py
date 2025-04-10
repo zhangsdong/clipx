@@ -43,9 +43,9 @@ class U2Net(BaseModel):
         # Determine the best device to use
         if device == 'auto':
             device = 'cuda' if 'CUDAExecutionProvider' in ort.get_available_providers() else 'cpu'
-            logger.info(f"Automatically selected device: {device}")
+            logger.debug(f"Automatically selected device: {device}")
 
-        logger.info(f"Loading U2Net model on {device}")
+        logger.debug(f"Loading U2Net model on {device}")
 
         # Download model if not exists
         try:
@@ -58,9 +58,9 @@ class U2Net(BaseModel):
         if device == 'cuda':
             if 'CUDAExecutionProvider' in ort.get_available_providers():
                 providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-                logger.info("Using CUDA for inference")
+                logger.debug("Using CUDA for inference")
             else:
-                logger.info("CUDA requested but not available, falling back to CPU")
+                logger.debug("CUDA requested but not available, falling back to CPU")
                 device = 'cpu'
 
         try:
@@ -73,7 +73,7 @@ class U2Net(BaseModel):
         except Exception as e:
             raise ClipxError(f"Failed to create ONNX session: {e}")
 
-        logger.info(f"U2Net model loaded successfully from {self.model_path}")
+        logger.debug(f"U2Net model loaded successfully from {self.model_path}")
         return self
 
     def _normalize(self, img, size=(320, 320)):
@@ -126,11 +126,11 @@ class U2Net(BaseModel):
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        logger.info("Processing image with U2Net")
+        logger.debug("Processing image with U2Net")
 
         # If mask is provided, just return it
         if mask is not None:
-            logger.info("Using provided mask, skipping U2Net inference")
+            logger.debug("Using provided mask, skipping U2Net inference")
             return mask
 
         try:
@@ -138,7 +138,7 @@ class U2Net(BaseModel):
             input_data = self._normalize(img)
 
             # Run inference
-            logger.info("Running U2Net inference")
+            logger.debug("Running U2Net inference")
             ort_outs = self.session.run(None, input_data)
 
             # Post-process the result
@@ -154,50 +154,50 @@ class U2Net(BaseModel):
             mask = Image.fromarray((pred * 255).astype("uint8"), mode="L")
             mask = mask.resize(img.size, Image.LANCZOS)
 
-            logger.info("U2Net processing completed")
+            logger.debug("U2Net processing completed")
             return mask
         except Exception as e:
             raise ClipxError(f"Error processing image with U2Net: {e}")
 
     def remove_background(self, img, bgcolor=(0, 0, 0, 0)):
         """
-        去除图片背景，返回透明背景的图像
+        Remove image background and return an image with transparent background.
 
         Args:
-            img: PIL图像对象
-            bgcolor: 背景颜色，默认为透明 (0,0,0,0)
+            img: PIL Image object
+            bgcolor: Background color, default is transparent (0,0,0,0)
 
         Returns:
-            PIL.Image: 去除背景后的透明图像
+            PIL.Image: Transparent image with background removed
         """
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        logger.info("Removing background from image")
+        logger.debug("Removing background from image")
         mask = self.process(img)
         cutout = Image.composite(img.convert("RGBA"),
                                  Image.new("RGBA", img.size, bgcolor),
                                  mask)
-        logger.info("Background removal completed")
+        logger.debug("Background removal completed")
         return cutout
 
     def get_binary_mask(self, img, threshold=130):
         """
-        生成二值化掩码图像
+        Generate a binary mask image.
 
         Args:
-            img: PIL图像对象
-            threshold: 二值化阈值，0-255之间，默认值130提供最佳通用效果
+            img: PIL Image object
+            threshold: Threshold for binarization, between 0-255, default 130 provides best general results
 
         Returns:
-            PIL.Image: 二值化后的掩码，纯黑白图像
+            PIL.Image: Binarized mask, pure black and white image
         """
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        logger.info(f"Generating binary mask with threshold {threshold}")
+        logger.debug(f"Generating binary mask with threshold {threshold}")
         mask = self.process(img)
-        # 将掩码二值化为纯黑白图像
+        # Binarize the mask into pure black and white
         binary_mask = mask.point(lambda p: 255 if p > threshold else 0)
-        logger.info("Binary mask generation completed")
+        logger.debug("Binary mask generation completed")
         return binary_mask

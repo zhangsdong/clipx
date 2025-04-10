@@ -24,7 +24,7 @@ def download_cascadepsp_model():
 
     # Check if valid model already exists
     if os.path.exists(model_path) and _is_valid_model(model_path):
-        logger.info("Using existing CascadePSP model")
+        logger.debug("Using existing CascadePSP model")
         return model_path
 
     # Download model
@@ -41,7 +41,7 @@ def download_cascadepsp_model():
                     downloaded += len(chunk)
                     # Show progress at 25% intervals
                     if total_size > 0 and downloaded % (total_size // 4) < 8192:
-                        logger.info(f"Download: {downloaded / total_size * 100:.0f}%")
+                        logger.debug(f"Download: {downloaded / total_size * 100:.0f}%")
 
         # Verify downloaded model
         if not _is_valid_model(model_path):
@@ -78,12 +78,12 @@ def download_and_or_check_model_file(destination):
     os.makedirs(os.path.dirname(destination), exist_ok=True)
 
     if not os.path.exists(destination):
-        logger.info("Model file does not exist, downloading...")
+        logger.debug("Model file does not exist, downloading...")
         _download_to_destination(destination)
 
     # Check model integrity
     if not _is_valid_model(destination):
-        logger.info("Model checksum failed, re-downloading...")
+        logger.debug("Model checksum failed, re-downloading...")
         _download_to_destination(destination)
 
         if not _is_valid_model(destination):

@@ -36,7 +36,7 @@ class Refiner:
         if download_and_check_model:
             download_and_or_check_model_file(model_path)
 
-        logger.info(f"Loading model from {model_path} to device {device}")
+        logger.debug(f"Loading model from {model_path} to device {device}")
         model_dict = torch.load(model_path, map_location={'cuda:0': device})
         new_dict = {}
         for k, v in model_dict.items():
@@ -102,15 +102,15 @@ class Refiner:
 
                 # 根据模式选择处理方法
                 if fast:
-                    logger.info("Using fast mode (single pass)")
+                    logger.debug("Using fast mode (single pass)")
                     output = process_im_single_pass(self.model, image_tensor, mask_tensor, L)
                 else:
-                    logger.info("Using high-res mode (multi-pass)")
+                    logger.debug("Using high-res mode (multi-pass)")
                     output = process_high_res_im(self.model, image_tensor, mask_tensor, L)
 
                 # 转回numpy数组
                 result = (output[0, 0].cpu().numpy() * 255).astype('uint8')
-                logger.info("Refinement completed successfully")
+                logger.debug("Refinement completed successfully")
                 return result
             except Exception as e:
                 logger.error(f"Error in refine method: {e}")

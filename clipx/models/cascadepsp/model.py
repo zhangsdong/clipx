@@ -41,9 +41,9 @@ class CascadePSPModel(BaseModel):
         import torch
         if device == 'auto':
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            logger.info(f"Automatically selected device: {device}")
+            logger.debug(f"Automatically selected device: {device}")
 
-        logger.info(f"Loading CascadePSP model to {device}...")
+        logger.debug(f"Loading CascadePSP model to {device}...")
 
         # Download model if not exists
         download_cascadepsp_model()
@@ -77,7 +77,7 @@ class CascadePSPModel(BaseModel):
         mask_np = np.array(mask)
 
         # Process shape info
-        logger.info(f"Processing mask with shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+        logger.debug(f"Processing mask with shape: {mask_np.shape}, dtype: {mask_np.dtype}")
 
         # Refine mask
         result_np = self.refiner.refine(image_np, mask_np, fast=fast)

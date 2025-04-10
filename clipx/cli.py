@@ -74,7 +74,7 @@ def main():
     # Validate required arguments when not displaying version
     if args.input is None or args.output is None:
         logger.error("Input and output paths are required. Example usage: clipx -i input.jpg -o output.png")
-        logger.info("For more options, use clipx --help")
+        logger.debug("For more options, use clipx --help")
         return 1
 
     # Check if input file exists
@@ -90,7 +90,7 @@ def main():
     try:
         # Initialize and run processing
         clipx = Clipx(device=args.device)
-        result_path = clipx.process(
+        result_path, processing_time = clipx.process(
             input_path=args.input,
             output_path=args.output,
             model=args.model,
@@ -98,7 +98,9 @@ def main():
             fast_mode=args.fast
         )
 
-        logger.info(f"Processing completed successfully: {result_path}")
+        # Output processing result and time separately
+        logger.info(f"Output saved to: {result_path}")
+        logger.info(f"Processing time: {processing_time:.2f} seconds")
         return 0
     except Exception as e:
         logger.error(f"Error during processing: {e}")

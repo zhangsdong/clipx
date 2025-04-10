@@ -16,7 +16,7 @@ class ClipxError(Exception):
 
 
 # U2Net model URL and MD5 checksum
-U2NET_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0//u2net.onnx"
+U2NET_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0/u2net.onnx"
 U2NET_MD5 = "60024c5c889badc19c04ad937298a77b"
 
 

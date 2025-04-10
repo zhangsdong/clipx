@@ -27,7 +27,7 @@ def parse_args():
 
     # Input and output
     parser.add_argument('-i', '--input', help='Input image path')
-    parser.add_argument('-o', '--output', help='Output image path')
+    parser.add_argument('-o', '--output', help='Output image path (optional, defaults to input_file_remove.png in the same directory)')
 
     # Model selection
     parser.add_argument('-m', '--model', choices=['u2net', 'cascadepsp', 'combined'],
@@ -72,8 +72,8 @@ def main():
         return 0
 
     # Validate required arguments when not displaying version
-    if args.input is None or args.output is None:
-        logger.error("Input and output paths are required. Example usage: clipx -i input.jpg -o output.png")
+    if args.input is None:
+        logger.error("Input path is required. Example usage: clipx -i input.jpg")
         logger.debug("For more options, use clipx --help")
         return 1
 
@@ -81,6 +81,13 @@ def main():
     if not os.path.isfile(args.input):
         logger.error(f"Input file does not exist: {args.input}")
         return 1
+
+    # Generate default output path if not provided
+    if args.output is None:
+        input_path = Path(args.input)
+        output_filename = f"{input_path.stem}_remove.png"
+        args.output = str(input_path.parent / output_filename)
+        logger.debug(f"Using default output path: {args.output}")
 
     # Create output directory if needed
     output_dir = os.path.dirname(args.output)

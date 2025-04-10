@@ -7,7 +7,7 @@ import requests
 import hashlib
 
 # CascadePSP model URL and MD5 checksum
-MODEL_URL = "https://github.com/hkchengrex/CascadePSP/releases/download/v1.0/model"
+MODEL_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0/model"
 MODEL_MD5 = "705806e3f26b039ee17c7f5b851c33ad"
 
 

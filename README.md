@@ -36,51 +36,83 @@ clipx --help
 Output help information:
 
 ```text
-Usage: clipx [OPTIONS]
+usage: clipx [-h] [-v] [-i INPUT] [-o OUTPUT] [-m {u2net,cascadepsp,combined}]
+             [--device {auto,cpu,cuda}] [--threshold THRESHOLD] [--fast]
+             [--debug] [--quiet]
 
-Options:
-  -i, --input FILE/FOLDER   Input image or folder. [required]
-  -o, --output FILE/FOLDER  Output image or folder.
-  -m, --model MODEL         Model to use: u2net, cascadepsp, auto (default).
-  -k, --only-mask           Output only mask image.
-  -u, --use-mask FILE       Use an existing mask image.
-  -v, --version             Show version information.
-  -h, --help                Show this help message.
-  --fast                    Use fast mode for CascadePSP (less accurate but faster).
+Image background removal and mask generation tool
+
+options:
+  -h, --help            show this help message and exit
+  -v, --version         Show version information and exit
+  -i INPUT, --input INPUT
+                        Input image path
+  -o OUTPUT, --output OUTPUT
+                        Output image path (optional, defaults to
+                        input_file_remove.png in the same directory)
+  -m {u2net,cascadepsp,combined}, --model {u2net,cascadepsp,combined}
+                        Model to use (default: combined)
+  --device {auto,cpu,cuda}
+                        Device to use for processing (default: auto - use GPU
+                        if available)
+  --threshold THRESHOLD
+                        Threshold for binary mask generation (0-255, default:
+                        130)
+  --fast                Use fast mode for CascadePSP (less accurate but faster)
+  --debug               Enable debug logging
+  --quiet               Suppress non-error output
 ```
 
 ---
 
 ## CLI Examples
 
-- Generate mask with U2Net and refine with CascadePSP to remove background:
+- Generate transparent image using combined mode (U2Net + CascadePSP):
+
+```bash
+clipx -i input.jpg
+```
+
+- Specify output path:
 
 ```bash
 clipx -i input.jpg -o output.png
 ```
 
-- Remove background using U2Net:
+- Use U2Net only for mask generation:
 
 ```bash
-clipx -m u2net -i input.jpg -o output.png
+clipx -i input.jpg -o output.png -m u2net
 ```
 
-- Generate mask only with U2Net:
+- Use CascadePSP only:
 
 ```bash
-clipx -m u2net -i input.jpg -o mask.png -k
+clipx -i input.jpg -o output.png -m cascadepsp
 ```
 
-- Refine an existing mask with CascadePSP:
+- Use fast mode for CascadePSP (faster but less accurate):
 
 ```bash
-clipx -m cascadepsp -i input.jpg -u mask.png -o output_mask.png
+clipx -i input.jpg -o output.png --fast
 ```
 
-- Remove background using an existing mask image:
+- Force CPU processing:
 
 ```bash
-clipx -i input.jpg -u mask.png -o output.png
+clipx -i input.jpg -o output.png --device cpu
+```
+
+- Adjust threshold for mask generation:
+
+```bash
+clipx -i input.jpg -o output.png --threshold 150
+```
+
+- Enable debug logging:
+
+```bash
+clipx -i input.jpg --debug
 ```
 
 ---
@@ -88,27 +120,71 @@ clipx -i input.jpg -u mask.png -o output.png
 ## Python API Example
 
 ```python
-from clipx import ClipX
+from clipx import Clipx
 
-# Initialize ClipX
-clip = ClipX(model='auto')
+# Initialize Clipx
+clipx = Clipx(device='auto')
 
-# Remove background using auto mode
-clip.remove_bg('input.jpg', output='output.png')
+# Process an image with combined model
+result_path, processing_time = clipx.process(
+    input_path='input.jpg',
+    output_path='output.png',
+    model='combined',
+    threshold=130,
+    fast_mode=False
+)
 
-# Generate mask using U2Net only
-clip.generate_mask('input.jpg', output='mask.png', model='u2net')
+print(f"Output saved to: {result_path}")
+print(f"Processing time: {processing_time:.2f} seconds")
+
+# Process with U2Net only
+clipx.process(
+    input_path='input.jpg',
+    output_path='output_u2net.png',
+    model='u2net'
+)
+
+# Process with CascadePSP only in fast mode
+clipx.process(
+    input_path='input.jpg',
+    output_path='output_cascadepsp.png',
+    model='cascadepsp',
+    fast_mode=True
+)
+```
+
+---
+
+## Advanced Usage
+
+### Logging Configuration
+
+You can configure the logging level:
+
+```python
+from clipx import set_log_level, enable_console_logging
+import logging
+
+# Enable console logging
+enable_console_logging()
+
+# Set log level
+set_log_level(logging.DEBUG)
 ```
 
 ---
 
 ## Acknowledgements and Code Sources
 
-The CascadePSP module in `clipx` is based on the `segmentation_refinement` implementation from the [CascadePSP project](https://github.com/hkchengrex/CascadePSP), modified and used according to the original project's licensing terms. We greatly appreciate the original author's work and contributions.
+The image segmentation models in `clipx` are based on the following projects:
+
+- U2Net: [U^2-Net: Going Deeper with Nested U-Structure for Salient Object Detection](https://github.com/xuebinqin/U-2-Net)
+- CascadePSP: [CascadePSP: Toward Class-Agnostic and Very High-Resolution Segmentation via Global and Local Refinement](https://github.com/hkchengrex/CascadePSP)
+
+We greatly appreciate the original authors' work and contributions.
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-

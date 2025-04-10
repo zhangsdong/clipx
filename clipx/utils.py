@@ -7,9 +7,8 @@ import sys
 import logging
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Get logger
+logger = logging.getLogger("clipx.utils")
 
 def get_project_root():
     """
@@ -23,7 +22,12 @@ def check_gpu_availability():
     """
     try:
         import torch
-        return torch.cuda.is_available()
+        available = torch.cuda.is_available()
+        if available:
+            logger.info("CUDA is available")
+        else:
+            logger.info("CUDA is not available")
+        return available
     except ImportError:
         logger.warning("PyTorch not found, defaulting to CPU")
         return False

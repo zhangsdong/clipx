@@ -1,119 +1,87 @@
 """
-CascadePSP model implementation for segmentation refinement.
-Original project: https://github.com/hkchengrex/CascadePSP
+CascadePSP model implementation with segmentation refinement functionality.
 """
 
-import os
-import logging
 import numpy as np
 from PIL import Image
+import logging
 
 from clipx.models.base import BaseModel
 from clipx.models.cascadepsp.main import Refiner
+from clipx.models.cascadepsp.download import download_cascadepsp_model
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Get logger
+logger = logging.getLogger("clipx.models.cascadepsp.model")
 
 class CascadePSPModel(BaseModel):
     """
-    CascadePSP model for segmentation refinement
+    CascadePSP model for segmentation refinement.
     """
 
     def __init__(self):
         """
-        Initialize CascadePSP model
+        Initialize the CascadePSP model.
         """
         super().__init__()
         self.name = "cascadepsp"
-        self.model = None
-        self.device = 'cpu'
+        self.refiner = None
 
     def load(self, device='auto'):
         """
-        Load CascadePSP model to specified device
+        Load the CascadePSP model.
 
         Args:
-            device: Device to load model to ('auto', 'cpu' or 'cuda')
+            device: Device to load the model on ('auto', 'cpu' or 'cuda')
                    When 'auto', GPU will be used if available
+
+        Returns:
+            self: The model instance
         """
         # Determine the best device to use
+        import torch
         if device == 'auto':
-            try:
-                import torch
-                device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                logger.info(f"Automatically selected device: {device}")
-            except ImportError:
-                device = 'cpu'
-                logger.warning("PyTorch not available, falling back to CPU")
-        elif device == 'cuda':
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    logger.warning("CUDA requested but not available, falling back to CPU")
-                    device = 'cpu'
-                else:
-                    logger.info("Using CUDA for inference")
-            except ImportError:
-                logger.warning("PyTorch not available, falling back to CPU")
-                device = 'cpu'
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            logger.info(f"Automatically selected device: {device}")
 
-        self.device = device
-        # Only initialize the model when needed
-        if self.model is None:
-            logger.info(f"Loading CascadePSP model to {device}...")
-            self.model = Refiner(device=device)
+        logger.info(f"Loading CascadePSP model to {device}...")
+
+        # Download model if not exists
+        download_cascadepsp_model()
+
+        # Create Refiner
+        self.refiner = Refiner(device=device)
+
         return self
 
     def process(self, image, mask=None, fast=False):
         """
-        Refine segmentation mask of the input image
+        Process the input image and mask.
 
         Args:
-            image: Input image (PIL Image or numpy array)
-            mask: Input mask image (PIL Image or numpy array)
-            fast: Whether to use fast mode (default: False)
+            image: PIL Image to process
+            mask: Optional mask to refine (PIL Image)
+            fast: Whether to use fast mode
 
         Returns:
-            Refined mask as PIL Image
+            PIL Image: The refined mask
         """
-        if self.model is None:
-            self.load(self.device)
+        if self.refiner is None:
+            raise Exception("Model not loaded. Call load() first.")
 
-        # Check if mask is provided
+        # If no mask is provided, create a simple grayscale-based one
         if mask is None:
-            raise ValueError("CascadePSP requires a mask image for refinement")
+            mask = image.convert("L")
 
-        # Convert PIL images to numpy arrays
-        if isinstance(image, Image.Image):
-            image_np = np.array(image)
-        else:
-            image_np = image
+        # Convert to numpy
+        image_np = np.array(image)
+        mask_np = np.array(mask)
 
-        if isinstance(mask, Image.Image):
-            mask_np = np.array(mask)
-        else:
-            mask_np = mask
+        # Process shape info
+        logger.info(f"Processing mask with shape: {mask_np.shape}, dtype: {mask_np.dtype}")
 
-        # Make sure image is RGB
-        if len(image_np.shape) == 2:  # Grayscale image
-            image_np = np.stack([image_np] * 3, axis=2)
-        elif image_np.shape[2] == 4:  # RGBA image
-            image_np = image_np[:, :, :3]
+        # Refine mask
+        result_np = self.refiner.refine(image_np, mask_np, fast=fast)
 
-        # Process the image and mask
-        try:
-            logger.info(f"Processing mask with shape: {mask_np.shape}, dtype: {mask_np.dtype}")
-            refined_mask_np = self.model.refine(image_np, mask_np, fast=fast)
-
-            # Convert back to PIL Image
-            refined_mask = Image.fromarray(refined_mask_np)
-
-            return refined_mask
-        except Exception as e:
-            logger.error(f"Error in CascadePSP refinement: {e}", exc_info=True)
-            # Fallback to original mask if refinement fails
-            logger.info("Falling back to original mask")
-            if isinstance(mask, Image.Image):
-                return mask
-            else:
-                return Image.fromarray(mask_np)
+        # Convert back to PIL
+        result = Image.fromarray(result_np)
+        return result

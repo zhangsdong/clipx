@@ -7,10 +7,13 @@ import numpy as np
 import torch
 from PIL import Image
 import onnxruntime as ort
+import logging
 
 from clipx.models.base import BaseModel
 from clipx.models.u2net.download import download_u2net_model, ClipxError
 
+# Get logger
+logger = logging.getLogger("clipx.models.u2net.model")
 
 class U2Net(BaseModel):
     """
@@ -40,9 +43,9 @@ class U2Net(BaseModel):
         # Determine the best device to use
         if device == 'auto':
             device = 'cuda' if 'CUDAExecutionProvider' in ort.get_available_providers() else 'cpu'
-            print(f"Automatically selected device: {device}")
+            logger.info(f"Automatically selected device: {device}")
 
-        print(f"Loading U2Net model on {device}")
+        logger.info(f"Loading U2Net model on {device}")
 
         # Download model if not exists
         try:
@@ -55,9 +58,9 @@ class U2Net(BaseModel):
         if device == 'cuda':
             if 'CUDAExecutionProvider' in ort.get_available_providers():
                 providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-                print("Using CUDA for inference")
+                logger.info("Using CUDA for inference")
             else:
-                print("CUDA requested but not available, falling back to CPU")
+                logger.info("CUDA requested but not available, falling back to CPU")
                 device = 'cpu'
 
         try:
@@ -70,7 +73,7 @@ class U2Net(BaseModel):
         except Exception as e:
             raise ClipxError(f"Failed to create ONNX session: {e}")
 
-        print(f"U2Net model loaded successfully from {self.model_path}")
+        logger.info(f"U2Net model loaded successfully from {self.model_path}")
         return self
 
     def _normalize(self, img, size=(320, 320)):
@@ -123,11 +126,11 @@ class U2Net(BaseModel):
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        print("Processing image with U2Net")
+        logger.info("Processing image with U2Net")
 
         # If mask is provided, just return it
         if mask is not None:
-            print("Using provided mask, skipping U2Net inference")
+            logger.info("Using provided mask, skipping U2Net inference")
             return mask
 
         try:
@@ -135,7 +138,7 @@ class U2Net(BaseModel):
             input_data = self._normalize(img)
 
             # Run inference
-            print("Running U2Net inference")
+            logger.info("Running U2Net inference")
             ort_outs = self.session.run(None, input_data)
 
             # Post-process the result
@@ -151,7 +154,7 @@ class U2Net(BaseModel):
             mask = Image.fromarray((pred * 255).astype("uint8"), mode="L")
             mask = mask.resize(img.size, Image.LANCZOS)
 
-            print("U2Net processing completed")
+            logger.info("U2Net processing completed")
             return mask
         except Exception as e:
             raise ClipxError(f"Error processing image with U2Net: {e}")
@@ -170,12 +173,12 @@ class U2Net(BaseModel):
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        print("Removing background from image")
+        logger.info("Removing background from image")
         mask = self.process(img)
         cutout = Image.composite(img.convert("RGBA"),
                                  Image.new("RGBA", img.size, bgcolor),
                                  mask)
-        print("Background removal completed")
+        logger.info("Background removal completed")
         return cutout
 
     def get_binary_mask(self, img, threshold=130):
@@ -192,9 +195,9 @@ class U2Net(BaseModel):
         if self.session is None:
             raise ClipxError("Model not loaded. Call load() first.")
 
-        print(f"Generating binary mask with threshold {threshold}")
+        logger.info(f"Generating binary mask with threshold {threshold}")
         mask = self.process(img)
         # 将掩码二值化为纯黑白图像
         binary_mask = mask.point(lambda p: 255 if p > threshold else 0)
-        print("Binary mask generation completed")
+        logger.info("Binary mask generation completed")
         return binary_mask

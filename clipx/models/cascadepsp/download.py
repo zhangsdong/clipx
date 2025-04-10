@@ -5,6 +5,10 @@ Download utilities for CascadePSP model.
 import os
 import requests
 import hashlib
+import logging
+
+# Get logger
+logger = logging.getLogger("clipx.models.cascadepsp.download")
 
 # CascadePSP model URL and MD5 checksum
 MODEL_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0/model"
@@ -20,11 +24,11 @@ def download_cascadepsp_model():
 
     # Check if valid model already exists
     if os.path.exists(model_path) and _is_valid_model(model_path):
-        print("Using existing CascadePSP model")
+        logger.info("Using existing CascadePSP model")
         return model_path
 
     # Download model
-    print("Downloading CascadePSP model...")
+    logger.info("Downloading CascadePSP model...")
     try:
         with requests.get(MODEL_URL, stream=True) as response:
             response.raise_for_status()
@@ -37,14 +41,14 @@ def download_cascadepsp_model():
                     downloaded += len(chunk)
                     # Show progress at 25% intervals
                     if total_size > 0 and downloaded % (total_size // 4) < 8192:
-                        print(f"Download: {downloaded / total_size * 100:.0f}%")
+                        logger.info(f"Download: {downloaded / total_size * 100:.0f}%")
 
         # Verify downloaded model
         if not _is_valid_model(model_path):
             os.remove(model_path)
             raise Exception("Model verification failed after download")
 
-        print("CascadePSP model downloaded successfully")
+        logger.info("CascadePSP model downloaded successfully")
         return model_path
     except Exception as e:
         if os.path.exists(model_path):
@@ -59,7 +63,10 @@ def _is_valid_model(model_path):
         with open(model_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 md5.update(chunk)
-        return md5.hexdigest().lower() == MODEL_MD5.lower()
+        is_valid = md5.hexdigest().lower() == MODEL_MD5.lower()
+        if not is_valid:
+            logger.warning("Model checksum verification failed")
+        return is_valid
     except Exception:
         return False
 
@@ -71,12 +78,12 @@ def download_and_or_check_model_file(destination):
     os.makedirs(os.path.dirname(destination), exist_ok=True)
 
     if not os.path.exists(destination):
-        print("Model file does not exist, downloading...")
+        logger.info("Model file does not exist, downloading...")
         _download_to_destination(destination)
 
     # Check model integrity
     if not _is_valid_model(destination):
-        print("Model checksum failed, re-downloading...")
+        logger.info("Model checksum failed, re-downloading...")
         _download_to_destination(destination)
 
         if not _is_valid_model(destination):

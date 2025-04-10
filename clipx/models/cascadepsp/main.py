@@ -4,7 +4,7 @@ Original project: https://github.com/hkchengrex/CascadePSP
 """
 
 import os
-
+import logging
 import numpy as np
 import torch
 from torchvision import transforms
@@ -13,6 +13,8 @@ from clipx.models.cascadepsp.models.psp.pspnet import RefinementModule
 from clipx.models.cascadepsp.eval_helper import process_high_res_im, process_im_single_pass
 from clipx.models.cascadepsp.download import download_and_or_check_model_file
 
+# Get logger
+logger = logging.getLogger("clipx.models.cascadepsp.main")
 
 class Refiner:
     def __init__(self, device='cpu', model_folder=None, model_name='model', download_and_check_model=True):
@@ -34,6 +36,7 @@ class Refiner:
         if download_and_check_model:
             download_and_or_check_model_file(model_path)
 
+        logger.info(f"Loading model from {model_path} to device {device}")
         model_dict = torch.load(model_path, map_location={'cuda:0': device})
         new_dict = {}
         for k, v in model_dict.items():
@@ -41,6 +44,7 @@ class Refiner:
             new_dict[name] = v
         self.model.load_state_dict(new_dict)
         self.model.eval().to(device)
+        logger.info("Model loaded successfully")
 
         self.im_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -71,18 +75,23 @@ class Refiner:
             # 确保图像是三维 [H, W, 3]
             if len(image.shape) == 2:
                 image = np.stack([image] * 3, axis=2)
+                logger.debug("Converted grayscale image to RGB")
             elif image.shape[2] == 4:
                 image = image[:, :, :3]
+                logger.debug("Converted RGBA image to RGB")
 
             # 确保掩码是二维 [H, W]
             if len(mask.shape) == 3 and mask.shape[2] == 1:
                 mask = mask[:, :, 0]
+                logger.debug("Extracted mask from 3D array with single channel")
             elif len(mask.shape) > 2:
                 # 如果掩码有多个通道，取第一个通道
                 mask = mask[:, :, 0]
+                logger.debug("Using first channel of multi-channel mask")
 
             # 转换为张量
             try:
+                logger.debug(f"Processing with fast mode: {fast}, L: {L}")
                 image_tensor = self.im_transform(image).unsqueeze(0).to(self.device)
                 # 先转为二值掩码，再转为张量
                 binary_mask = (mask > 127).astype(np.uint8) * 255
@@ -93,16 +102,20 @@ class Refiner:
 
                 # 根据模式选择处理方法
                 if fast:
+                    logger.info("Using fast mode (single pass)")
                     output = process_im_single_pass(self.model, image_tensor, mask_tensor, L)
                 else:
+                    logger.info("Using high-res mode (multi-pass)")
                     output = process_high_res_im(self.model, image_tensor, mask_tensor, L)
 
                 # 转回numpy数组
                 result = (output[0, 0].cpu().numpy() * 255).astype('uint8')
+                logger.info("Refinement completed successfully")
                 return result
             except Exception as e:
-                print(f"Error in refine method: {e}")
+                logger.error(f"Error in refine method: {e}")
                 import traceback
-                traceback.print_exc()
+                logger.debug(traceback.format_exc())
                 # 出错时返回原始掩码
+                logger.warning("Returning original mask due to processing error")
                 return binary_mask if 'binary_mask' in locals() else ((mask > 127).astype(np.uint8) * 255)

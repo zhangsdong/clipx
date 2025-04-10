@@ -10,10 +10,10 @@ from pathlib import Path
 
 from clipx.core import Clipx
 from clipx import __version__
+from clipx.logging import enable_console_logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# CLI-specific logger
+logger = logging.getLogger("clipx.cli")
 
 def parse_args():
     """
@@ -41,6 +41,12 @@ def parse_args():
     parser.add_argument('--fast', action='store_true',
                        help='Use fast mode for CascadePSP (less accurate but faster)')
 
+    # Logging options
+    parser.add_argument('--debug', action='store_true',
+                       help='Enable debug logging')
+    parser.add_argument('--quiet', action='store_true',
+                       help='Suppress non-error output')
+
     return parser.parse_args()
 
 def main():
@@ -49,6 +55,17 @@ def main():
     """
     args = parse_args()
 
+    # Setup CLI logging
+    enable_console_logging()
+    root_logger = logging.getLogger("clipx")
+
+    if args.debug:
+        root_logger.setLevel(logging.DEBUG)
+    elif args.quiet:
+        root_logger.setLevel(logging.ERROR)
+    else:
+        root_logger.setLevel(logging.INFO)
+
     # Handle version display
     if args.version:
         print(f"clipx version {__version__}")
@@ -56,9 +73,8 @@ def main():
 
     # Validate required arguments when not displaying version
     if args.input is None or args.output is None:
-        logger.error("Input and output paths are required unless using --version")
-        print("Error: Input and output paths are required. Use -i INPUT and -o OUTPUT.")
-        print("For help, use --help")
+        logger.error("Input and output paths are required. Example usage: clipx -i input.jpg -o output.png")
+        logger.info("For more options, use clipx --help")
         return 1
 
     # Check if input file exists

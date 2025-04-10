@@ -7,9 +7,8 @@ import time
 from PIL import Image
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configure logger
+logger = logging.getLogger("clipx.core")
 
 class Clipx:
     """

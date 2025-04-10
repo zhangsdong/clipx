@@ -26,13 +26,14 @@ class CascadePSPModel(BaseModel):
         self.name = "cascadepsp"
         self.refiner = None
 
-    def load(self, device='auto'):
+    def load(self, device='auto', skip_checksum=False):
         """
         Load the CascadePSP model.
 
         Args:
             device: Device to load the model on ('auto', 'cpu' or 'cuda')
                    When 'auto', GPU will be used if available
+            skip_checksum: Whether to skip MD5 checksum verification
 
         Returns:
             self: The model instance
@@ -46,10 +47,10 @@ class CascadePSPModel(BaseModel):
         logger.debug(f"Loading CascadePSP model to {device}...")
 
         # Download model if not exists
-        download_cascadepsp_model()
+        download_cascadepsp_model(skip_checksum=skip_checksum)
 
         # Create Refiner
-        self.refiner = Refiner(device=device)
+        self.refiner = Refiner(device=device, download_and_check_model=(not skip_checksum))
 
         return self
 

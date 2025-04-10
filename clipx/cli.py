@@ -40,6 +40,8 @@ def parse_args():
                        help='Threshold for binary mask generation (0-255, default: 130)')
     parser.add_argument('--fast', action='store_true',
                        help='Use fast mode for CascadePSP (less accurate but faster)')
+    parser.add_argument('--skip-checksum', action='store_true',
+                       help='Skip MD5 checksum verification for models')
 
     # Logging options
     parser.add_argument('--debug', action='store_true',
@@ -96,7 +98,7 @@ def main():
 
     try:
         # Initialize and run processing
-        clipx = Clipx(device=args.device)
+        clipx = Clipx(device=args.device, skip_checksum=args.skip_checksum)
         result_path, processing_time = clipx.process(
             input_path=args.input,
             output_path=args.output,

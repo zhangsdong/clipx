@@ -16,18 +16,20 @@ class Clipx:
     Main class for image processing with U2Net and CascadePSP.
     """
 
-    def __init__(self, device='auto'):
+    def __init__(self, device='auto', skip_checksum=False):
         """
         Initialize the processing pipeline.
 
         Args:
             device: Device to use for processing ('auto', 'cpu' or 'cuda')
                    When 'auto', GPU will be used if available
+            skip_checksum: Whether to skip MD5 checksum verification for models
         """
         self.device = device
+        self.skip_checksum = skip_checksum
         self.u2net = None
         self.cascadepsp = None
-        logger.debug(f"Initializing Clipx with device preference: {device}")
+        logger.debug(f"Initializing Clipx with device preference: {device}, skip_checksum: {skip_checksum}")
 
     def load_u2net(self):
         """
@@ -36,7 +38,7 @@ class Clipx:
         if self.u2net is None:
             from clipx.models.u2net import U2Net
             logger.debug("Loading U2Net model")
-            self.u2net = U2Net().load(device=self.device)
+            self.u2net = U2Net().load(device=self.device, skip_checksum=self.skip_checksum)
         return self.u2net
 
     def load_cascadepsp(self):
@@ -46,7 +48,7 @@ class Clipx:
         if self.cascadepsp is None:
             from clipx.models.cascadepsp import CascadePSPModel
             logger.debug("Loading CascadePSP model")
-            self.cascadepsp = CascadePSPModel().load(device=self.device)
+            self.cascadepsp = CascadePSPModel().load(device=self.device, skip_checksum=self.skip_checksum)
         return self.cascadepsp
 
     def process(self, input_path, output_path, model='combined', threshold=130, fast_mode=False):

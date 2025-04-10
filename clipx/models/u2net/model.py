@@ -29,13 +29,14 @@ class U2Net(BaseModel):
         self.session = None
         self.model_path = None
 
-    def load(self, device='auto'):
+    def load(self, device='auto', skip_checksum=False):
         """
         Load the U2Net model.
 
         Args:
             device: Device to load the model on ('auto', 'cpu' or 'cuda')
                    When 'auto', GPU will be used if available
+            skip_checksum: Whether to skip MD5 checksum verification
 
         Returns:
             self: The model instance
@@ -49,7 +50,7 @@ class U2Net(BaseModel):
 
         # Download model if not exists
         try:
-            self.model_path = download_u2net_model()
+            self.model_path = download_u2net_model(skip_checksum=skip_checksum)
         except Exception as e:
             raise ClipxError(f"Failed to download U2Net model: {e}")
 

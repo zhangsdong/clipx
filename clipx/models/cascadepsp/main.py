@@ -23,6 +23,7 @@ class Refiner:
         device can be 'cpu' or 'cuda'
         model_folder specifies the folder in which the model will be downloaded and stored. Defaulted in ~/.clipx/cascadepsp.
         model_name specifies the model file name. Defaulted to 'model'.
+        download_and_check_model specifies whether to verify MD5 checksum.
         """
         self.model = RefinementModule()
         self.device = device
@@ -34,7 +35,7 @@ class Refiner:
 
         model_path = os.path.join(model_folder, model_name)
         if download_and_check_model:
-            download_and_or_check_model_file(model_path)
+            download_and_or_check_model_file(model_path, skip_checksum=not download_and_check_model)
 
         logger.debug(f"Loading model from {model_path} to device {device}")
         model_dict = torch.load(model_path, map_location={'cuda:0': device})

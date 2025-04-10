@@ -20,9 +20,12 @@ U2NET_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0//u2net
 U2NET_MD5 = "60024c5c889badc19c04ad937298a77b"
 
 
-def download_u2net_model():
+def download_u2net_model(skip_checksum=False):
     """
     Download the U2Net model if not present or invalid.
+
+    Args:
+        skip_checksum: Whether to skip MD5 checksum verification
 
     Returns:
         str: Path to the U2Net model file
@@ -33,7 +36,7 @@ def download_u2net_model():
     model_path = os.path.join(model_dir, "u2net.onnx")
 
     # Check if valid model already exists
-    skip_checksum = os.environ.get('MODEL_CHECKSUM_DISABLED') is not None
+    skip_checksum = skip_checksum or os.environ.get('MODEL_CHECKSUM_DISABLED') is not None
     if os.path.exists(model_path) and (skip_checksum or _is_valid_model(model_path)):
         logger.debug("Using existing U2Net model")
         return model_path

@@ -15,15 +15,20 @@ MODEL_URL = "https://github.com/zhangsdong/clipx/releases/download/v0.1.0/model"
 MODEL_MD5 = "705806e3f26b039ee17c7f5b851c33ad"
 
 
-def download_cascadepsp_model():
-    """Download the CascadePSP model if not present or invalid."""
+def download_cascadepsp_model(skip_checksum=False):
+    """
+    Download the CascadePSP model if not present or invalid.
+
+    Args:
+        skip_checksum: Whether to skip MD5 checksum verification
+    """
     # Setup model path
     model_dir = os.path.expanduser("~/.clipx/cascadepsp")
     os.makedirs(model_dir, exist_ok=True)
     model_path = os.path.join(model_dir, "model")
 
     # Check if valid model already exists
-    if os.path.exists(model_path) and _is_valid_model(model_path):
+    if os.path.exists(model_path) and (skip_checksum or _is_valid_model(model_path)):
         logger.debug("Using existing CascadePSP model")
         return model_path
 
@@ -44,7 +49,7 @@ def download_cascadepsp_model():
                         logger.debug(f"Download: {downloaded / total_size * 100:.0f}%")
 
         # Verify downloaded model
-        if not _is_valid_model(model_path):
+        if not skip_checksum and not _is_valid_model(model_path):
             os.remove(model_path)
             raise Exception("Model verification failed after download")
 
@@ -72,8 +77,14 @@ def _is_valid_model(model_path):
 
 
 # For backwards compatibility with existing code
-def download_and_or_check_model_file(destination):
-    """Download model if needed and check its integrity"""
+def download_and_or_check_model_file(destination, skip_checksum=False):
+    """
+    Download model if needed and check its integrity
+
+    Args:
+        destination: Path where model should be saved
+        skip_checksum: Whether to skip MD5 checksum verification
+    """
     # Ensure directory exists
     os.makedirs(os.path.dirname(destination), exist_ok=True)
 
@@ -82,11 +93,11 @@ def download_and_or_check_model_file(destination):
         _download_to_destination(destination)
 
     # Check model integrity
-    if not _is_valid_model(destination):
+    if not skip_checksum and not _is_valid_model(destination):
         logger.debug("Model checksum failed, re-downloading...")
         _download_to_destination(destination)
 
-        if not _is_valid_model(destination):
+        if not skip_checksum and not _is_valid_model(destination):
             raise Exception("Model verification failed after re-download")
 
 

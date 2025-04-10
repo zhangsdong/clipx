@@ -8,14 +8,6 @@ English | [简体中文](./README_zh.md)
 
 ---
 
-## Features
-
-- Supports single or combined model usage for flexible background removal.
-- User-friendly CLI suitable for automation workflows.
-- Simple and easy-to-integrate Python API.
-- Can output mask images separately or directly produce transparent background images.
-
----
 
 ## Installation
 
@@ -25,45 +17,6 @@ pip install clipx
 
 ---
 
-## CLI Usage
-
-View help information:
-
-```bash
-clipx --help
-```
-
-Output help information:
-
-```text
-usage: clipx [-h] [-v] [-i INPUT] [-o OUTPUT] [-m {u2net,cascadepsp,combined}]
-             [--device {auto,cpu,cuda}] [--threshold THRESHOLD] [--fast]
-             [--debug] [--quiet]
-
-Image background removal and mask generation tool
-
-options:
-  -h, --help            show this help message and exit
-  -v, --version         Show version information and exit
-  -i INPUT, --input INPUT
-                        Input image path
-  -o OUTPUT, --output OUTPUT
-                        Output image path (optional, defaults to
-                        input_file_remove.png in the same directory)
-  -m {u2net,cascadepsp,combined}, --model {u2net,cascadepsp,combined}
-                        Model to use (default: combined)
-  --device {auto,cpu,cuda}
-                        Device to use for processing (default: auto - use GPU
-                        if available)
-  --threshold THRESHOLD
-                        Threshold for binary mask generation (0-255, default:
-                        130)
-  --fast                Use fast mode for CascadePSP (less accurate but faster)
-  --debug               Enable debug logging
-  --quiet               Suppress non-error output
-```
-
----
 
 ## CLI Examples
 
@@ -79,34 +32,16 @@ clipx -i input.jpg
 clipx -i input.jpg -o output.png
 ```
 
-- Use U2Net only for mask generation:
-
-```bash
-clipx -i input.jpg -o output.png -m u2net
-```
-
-- Use CascadePSP only:
-
-```bash
-clipx -i input.jpg -o output.png -m cascadepsp
-```
-
 - Use fast mode for CascadePSP (faster but less accurate):
 
 ```bash
 clipx -i input.jpg -o output.png --fast
 ```
 
-- Force CPU processing:
+- Use U2Net only for mask generation:
 
 ```bash
-clipx -i input.jpg -o output.png --device cpu
-```
-
-- Adjust threshold for mask generation:
-
-```bash
-clipx -i input.jpg -o output.png --threshold 150
+clipx -i input.jpg -o output.png -m u2net
 ```
 
 - Enable debug logging:

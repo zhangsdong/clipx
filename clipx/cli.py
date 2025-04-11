@@ -36,8 +36,8 @@ def parse_args():
     # Advanced options
     parser.add_argument('--device', choices=['auto', 'cpu', 'cuda'], default='auto',
                        help='Device to use for processing (default: auto - use GPU if available)')
-    parser.add_argument('--threshold', type=int, default=130,
-                       help='Threshold for binary mask generation (0-255, default: 130)')
+    parser.add_argument('--edge-hardness', type=int, default=50,
+                       help='Edge hardness (0-100, default: 50). Higher values create harder edges.')
     parser.add_argument('--fast', action='store_true',
                        help='Use fast mode for CascadePSP (less accurate but faster)')
     parser.add_argument('--skip-checksum', action='store_true',
@@ -96,6 +96,18 @@ def main():
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
+    # Check if output directory is writable
+    try:
+        if output_dir:
+            test_file = os.path.join(output_dir, ".write_test")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+    except Exception as e:
+        logger.error(f"Output directory is not writable: {output_dir}")
+        logger.debug(f"Write permission error: {e}")
+        return 1
+
     try:
         # Initialize and run processing
         clipx = Clipx(device=args.device, skip_checksum=args.skip_checksum)
@@ -103,7 +115,7 @@ def main():
             input_path=args.input,
             output_path=args.output,
             model=args.model,
-            threshold=args.threshold,
+            edge_hardness=args.edge_hardness,
             fast_mode=args.fast
         )
 
@@ -113,6 +125,7 @@ def main():
         return 0
     except Exception as e:
         logger.error(f"Error during processing: {e}")
+        logger.debug(f"Detailed error: {str(e)}", exc_info=True)
         return 1
 
 if __name__ == "__main__":

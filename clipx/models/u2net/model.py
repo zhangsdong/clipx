@@ -1,166 +1,166 @@
 """
-U2Net model implementation with background removal and binary mask functionality.
+U2Net model implementation with background removal functionality.
 """
 
 import os
 import numpy as np
-import torch
 from PIL import Image
 import onnxruntime as ort
+from typing import Tuple, List, Optional, Union, Dict, Any
 import logging
-
-from clipx.models.base import BaseModel
-from clipx.models.u2net.download import download_u2net_model, ClipxError
 
 # Get logger
 logger = logging.getLogger("clipx.models.u2net.model")
 
-class U2Net(BaseModel):
+class U2NetPredictor:
     """
     U2Net model for background removal.
     """
+    # Singleton implementation
+    _instance = None
 
-    def __init__(self):
+    def __new__(cls, model_path: str, providers: Optional[List[str]] = None):
         """
-        Initialize the U2Net model.
-        """
-        super().__init__()
-        self.name = "u2net"
-        self.session = None
-        self.model_path = None
-
-    def load(self, device='auto', skip_checksum=False):
-        """
-        Load the U2Net model.
+        Implement singleton pattern to ensure model is loaded only once.
 
         Args:
-            device: Device to load the model on ('auto', 'cpu' or 'cuda')
-                   When 'auto', GPU will be used if available
-            skip_checksum: Whether to skip MD5 checksum verification
+            model_path: Path to the ONNX model file
+            providers: List of ONNX execution providers
 
         Returns:
-            self: The model instance
+            U2NetPredictor: Singleton instance
         """
-        # Determine the best device to use
-        if device == 'auto':
-            device = 'cuda' if 'CUDAExecutionProvider' in ort.get_available_providers() else 'cpu'
-            logger.debug(f"Automatically selected device: {device}")
+        if cls._instance is None:
+            logger.info("Creating new U2NetPredictor instance (Singleton)")
+            cls._instance = super(U2NetPredictor, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
 
-        logger.debug(f"Loading U2Net model on {device}")
+    def __init__(self, model_path: str, providers: Optional[List[str]] = None):
+        """
+        Initialize the U2Net model.
 
-        # Download model if not exists
-        try:
-            self.model_path = download_u2net_model(skip_checksum=skip_checksum)
-        except Exception as e:
-            raise ClipxError(f"Failed to download U2Net model: {e}")
+        Args:
+            model_path: Path to the ONNX model file
+            providers: List of ONNX execution providers
+        """
+        # Skip initialization if already done (singleton pattern)
+        if getattr(self, "_initialized", False):
+            logger.debug("U2NetPredictor already initialized (Singleton)")
+            return
 
-        # Create ONNX session
-        providers = ['CPUExecutionProvider']
-        if device == 'cuda':
-            if 'CUDAExecutionProvider' in ort.get_available_providers():
-                providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-                logger.debug("Using CUDA for inference")
-            else:
-                logger.debug("CUDA requested but not available, falling back to CPU")
-                device = 'cpu'
+        logger.info(f"Initializing U2Net model from {model_path}")
 
+        # Validate model path
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+
+        # Set default providers if not specified
+        if providers is None:
+            providers = ['CPUExecutionProvider']
+
+        # Initialize ONNX session
+        self.session = self._load_model(model_path, providers)
+        self._initialized = True
+
+    def _load_model(self, model_path: str, providers: List[str]) -> ort.InferenceSession:
+        """
+        Load the ONNX model.
+
+        Args:
+            model_path: Path to the ONNX model file
+            providers: List of ONNX execution providers
+
+        Returns:
+            ort.InferenceSession: ONNX runtime session
+        """
         try:
             sess_options = ort.SessionOptions()
-            self.session = ort.InferenceSession(
-                self.model_path,
-                sess_options=sess_options,
-                providers=providers
-            )
+            logger.info(f"Loading model with providers: {providers}")
+            return ort.InferenceSession(model_path, sess_options=sess_options, providers=providers)
         except Exception as e:
-            raise ClipxError(f"Failed to create ONNX session: {e}")
+            logger.error(f"Failed to load ONNX model: {e}")
+            raise
 
-        logger.debug(f"U2Net model loaded successfully from {self.model_path}")
-        return self
-
-    def _normalize(self, img, size=(320, 320)):
+    def _normalize_image(self, img: Image.Image,
+                          mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
+                          std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
+                          size: Tuple[int, int] = (320, 320)) -> Dict[str, np.ndarray]:
         """
         Normalize the input image for U2Net.
 
         Args:
             img: PIL Image
-            size: Size to resize to
+            mean: RGB mean values for normalization
+            std: RGB standard deviation values for normalization
+            size: Size to resize the image to
 
         Returns:
             dict: Normalized input for ONNX session
         """
         try:
             # Convert to RGB and resize
-            im = img.convert("RGB").resize(size, Image.LANCZOS)
+            im = img.convert("RGB").resize(size, Image.Resampling.LANCZOS)
 
             # Convert to numpy array and normalize
-            im_ary = np.array(im)
-            im_ary = im_ary / np.max(im_ary)
+            im_array = np.array(im) / 255.0
 
             # Apply mean and std normalization
-            tmpImg = np.zeros((im_ary.shape[0], im_ary.shape[1], 3))
-            tmpImg[:, :, 0] = (im_ary[:, :, 0] - 0.485) / 0.229
-            tmpImg[:, :, 1] = (im_ary[:, :, 1] - 0.456) / 0.224
-            tmpImg[:, :, 2] = (im_ary[:, :, 2] - 0.406) / 0.225
+            normalized = np.zeros(im_array.shape, dtype=np.float32)
+            normalized[:, :, 0] = (im_array[:, :, 0] - mean[0]) / std[0]
+            normalized[:, :, 1] = (im_array[:, :, 1] - mean[1]) / std[1]
+            normalized[:, :, 2] = (im_array[:, :, 2] - mean[2]) / std[2]
 
-            # Transpose to channel-first format
-            tmpImg = tmpImg.transpose((2, 0, 1))
+            # Transpose to channel-first format and add batch dimension
+            normalized = normalized.transpose((2, 0, 1))
+            normalized = np.expand_dims(normalized, 0).astype(np.float32)
 
-            # Add batch dimension
-            return {
-                self.session.get_inputs()[0].name: np.expand_dims(tmpImg, 0).astype(np.float32)
-            }
+            return {self.session.get_inputs()[0].name: normalized}
         except Exception as e:
-            raise ClipxError(f"Failed to normalize image: {e}")
+            logger.error(f"Failed to normalize image: {e}")
+            raise
 
-    def process(self, img, mask=None, fast=False):
+    def predict_mask(self, img: Image.Image) -> Image.Image:
         """
-        Process the input image with U2Net.
+        Generate a background mask for the input image.
 
         Args:
-            img: PIL Image to process
-            mask: Optional existing mask (not used for U2Net)
-            fast: Whether to use fast mode (not used for U2Net)
+            img: PIL Image
 
         Returns:
-            PIL Image: The resulting mask
+            PIL.Image: Grayscale mask where white represents foreground
         """
-        if self.session is None:
-            raise ClipxError("Model not loaded. Call load() first.")
+        if not hasattr(self, "session") or self.session is None:
+            raise RuntimeError("Model not initialized. Call __init__ first.")
 
-        logger.debug("Processing image with U2Net")
-
-        # If mask is provided, just return it
-        if mask is not None:
-            logger.debug("Using provided mask, skipping U2Net inference")
-            return mask
+        logger.debug("Generating mask with U2Net")
 
         try:
             # Get normalized input
-            input_data = self._normalize(img)
+            input_data = self._normalize_image(img)
 
             # Run inference
-            logger.debug("Running U2Net inference")
             ort_outs = self.session.run(None, input_data)
 
-            # Post-process the result
+            # Get prediction
             pred = ort_outs[0][:, 0, :, :]
 
             # Normalize prediction to range [0, 1]
-            ma = np.max(pred)
-            mi = np.min(pred)
-            pred = (pred - mi) / (ma - mi)
+            pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
             pred = np.squeeze(pred)
 
             # Convert to PIL Image and resize to match input
             mask = Image.fromarray((pred * 255).astype("uint8"), mode="L")
-            mask = mask.resize(img.size, Image.LANCZOS)
+            mask = mask.resize(img.size, Image.Resampling.LANCZOS)
 
-            logger.debug("U2Net processing completed")
+            logger.debug("U2Net mask generation completed")
             return mask
         except Exception as e:
-            raise ClipxError(f"Error processing image with U2Net: {e}")
+            logger.error(f"Error processing image with U2Net: {e}")
+            raise
 
-    def remove_background(self, img, bgcolor=(0, 0, 0, 0)):
+    def remove_background(self, img: Image.Image,
+                          bgcolor: Tuple[int, int, int, int] = (0, 0, 0, 0)) -> Image.Image:
         """
         Remove image background and return an image with transparent background.
 
@@ -171,34 +171,10 @@ class U2Net(BaseModel):
         Returns:
             PIL.Image: Transparent image with background removed
         """
-        if self.session is None:
-            raise ClipxError("Model not loaded. Call load() first.")
-
         logger.debug("Removing background from image")
-        mask = self.process(img)
+        mask = self.predict_mask(img)
         cutout = Image.composite(img.convert("RGBA"),
-                                 Image.new("RGBA", img.size, bgcolor),
-                                 mask)
+                                Image.new("RGBA", img.size, bgcolor),
+                                mask)
         logger.debug("Background removal completed")
         return cutout
-
-    def get_binary_mask(self, img, threshold=130):
-        """
-        Generate a binary mask image.
-
-        Args:
-            img: PIL Image object
-            threshold: Threshold for binarization, between 0-255, default 130 provides best general results
-
-        Returns:
-            PIL.Image: Binarized mask, pure black and white image
-        """
-        if self.session is None:
-            raise ClipxError("Model not loaded. Call load() first.")
-
-        logger.debug(f"Generating binary mask with threshold {threshold}")
-        mask = self.process(img)
-        # Binarize the mask into pure black and white
-        binary_mask = mask.point(lambda p: 255 if p > threshold else 0)
-        logger.debug("Binary mask generation completed")
-        return binary_mask

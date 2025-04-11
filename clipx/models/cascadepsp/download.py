@@ -127,3 +127,30 @@ def _is_valid_model(model_path: str) -> bool:
     except Exception as e:
         logger.warning(f"Error during checksum verification: {e}")
         return False
+
+
+def download_and_or_check_model_file(model_path: str, skip_checksum: bool = False) -> str:
+    """
+    Download the model file if it doesn't exist or check its MD5 hash if it does.
+
+    Args:
+        model_path: Path to the model file
+        skip_checksum: Whether to skip MD5 checksum verification
+
+    Returns:
+        str: Path to the verified model file
+    """
+    model_dir = os.path.dirname(model_path)
+    model_name = os.path.basename(model_path)
+
+    # Ensure directory exists
+    os.makedirs(model_dir, exist_ok=True)
+
+    # Check if model exists and is valid
+    if os.path.exists(model_path) and (skip_checksum or _is_valid_model(model_path)):
+        logger.debug(f"Using existing model at {model_path}")
+        return model_path
+    else:
+        # Download model if it doesn't exist or is invalid
+        logger.info(f"Downloading model to {model_path}")
+        return download_cascadepsp_model(skip_checksum)

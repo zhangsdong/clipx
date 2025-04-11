@@ -9,7 +9,7 @@ from clipx.api import (
     get_available_devices
 )
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __all__ = [
     'Clipx',
     'set_log_level',

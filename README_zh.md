@@ -56,37 +56,11 @@ clipx -i input.jpg --debug
 ## Python API 使用示例
 
 ```python
-from clipx import Clipx
+from clipx import remove_background
 
-# 初始化Clipx
-clipx = Clipx(device='auto')
+result = remove_background("photo.jpg")
 
-# 使用组合模型处理图像
-result_path, processing_time = clipx.process(
-    input_path='input.jpg',
-    output_path='output.png',
-    model='combined',
-    threshold=130,
-    fast_mode=False
-)
-
-print(f"输出已保存至: {result_path}")
-print(f"处理时间: {processing_time:.2f} 秒")
-
-# 仅使用U2Net处理
-clipx.process(
-    input_path='input.jpg',
-    output_path='output_u2net.png',
-    model='u2net'
-)
-
-# 仅使用CascadePSP的快速模式处理
-clipx.process(
-    input_path='input.jpg',
-    output_path='output_cascadepsp.png',
-    model='cascadepsp',
-    fast_mode=True
-)
+print(f"Image with background removed saved to: {result}")
 ```
 
 ---

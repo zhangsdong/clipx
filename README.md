@@ -55,37 +55,13 @@ clipx -i input.jpg --debug
 ## Python API Example
 
 ```python
-from clipx import Clipx
+# Import the background removal function
+from clipx import remove_background
 
-# Initialize Clipx
-clipx = Clipx(device='auto')
+# Remove the background from an image with a single line of code
+result = remove_background("photo.jpg")
 
-# Process an image with combined model
-result_path, processing_time = clipx.process(
-    input_path='input.jpg',
-    output_path='output.png',
-    model='combined',
-    threshold=130,
-    fast_mode=False
-)
-
-print(f"Output saved to: {result_path}")
-print(f"Processing time: {processing_time:.2f} seconds")
-
-# Process with U2Net only
-clipx.process(
-    input_path='input.jpg',
-    output_path='output_u2net.png',
-    model='u2net'
-)
-
-# Process with CascadePSP only in fast mode
-clipx.process(
-    input_path='input.jpg',
-    output_path='output_cascadepsp.png',
-    model='cascadepsp',
-    fast_mode=True
-)
+print(f"Image with background removed saved to: {result}")
 ```
 
 ---

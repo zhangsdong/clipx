@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clipx"
-version = "0.2.1"
+version = "0.3.0"
 description = "Image background removal tool supporting U2Net and CascadePSP models"
 readme = "README.md"
 authors = [

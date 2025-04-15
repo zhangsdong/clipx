@@ -38,59 +38,34 @@ clipx -i input.jpg -o output.png
 clipx -i input.jpg -o output.png --fast
 ```
 
-- Use U2Net only for mask generation:
-
-```bash
-clipx -i input.jpg -o output.png -m u2net
-```
-
-- Enable debug logging:
-
-```bash
-clipx -i input.jpg --debug
-```
-
 ---
 
 ## Python API Example
 
 ```python
-# Import the background removal function
-from clipx import remove_background
+from PIL import Image
+from clipx import remove
 
-# Remove the background from an image with a single line of code
-result = remove_background("photo.jpg")
+# Testing the API
+img = Image.open("tests/leaves-8273504_1920.jpg")
+result = remove(img)
+result.save("api_test_result.png")
 
-print(f"Image with background removed saved to: {result}")
+# Get only the mask
+mask = remove(img, only_mask=True)
+mask.save("mask_only.png")
 ```
 
 ---
 
-## Advanced Usage
-
-### Logging Configuration
-
-You can configure the logging level:
-
-```python
-from clipx import set_log_level, enable_console_logging
-import logging
-
-# Enable console logging
-enable_console_logging()
-
-# Set log level
-set_log_level(logging.DEBUG)
-```
-
----
 
 ## Acknowledgements and Code Sources
 
-The image segmentation models in `clipx` are based on the following projects:
+This project uses code from the following open source projects:
 
 - U2Net: [U^2-Net: Going Deeper with Nested U-Structure for Salient Object Detection](https://github.com/xuebinqin/U-2-Net)
 - CascadePSP: [CascadePSP: Toward Class-Agnostic and Very High-Resolution Segmentation via Global and Local Refinement](https://github.com/hkchengrex/CascadePSP)
+- Special thanks to [rembg](https://github.com/danielgatis/rembg) project for inspiration on project structure and implementation approach.
 
 We greatly appreciate the original authors' work and contributions.
 

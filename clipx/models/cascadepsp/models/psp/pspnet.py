@@ -1,15 +1,17 @@
+"""
+This module contains code modified from the CascadePSP project
+The implementation is based on the segmentation-refinement code
+Original code: https://github.com/hkchengrex/CascadePSP
+"""
+
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-from clipx.models.cascadepsp.models.psp import extractors
+from segmentation_refinement.models.psp import extractors
 
 
 class PSPModule(nn.Module):
-    """
-    Pyramid Scene Parsing Module
-    """
-
     def __init__(self, features, out_features=1024, sizes=(1, 2, 3, 6)):
         super().__init__()
         self.stages = []
@@ -24,18 +26,13 @@ class PSPModule(nn.Module):
 
     def forward(self, feats):
         h, w = feats.size(2), feats.size(3)
-        set_priors = [F.interpolate(input=stage(feats), size=(h, w), mode='bilinear', align_corners=False) for stage in
-                      self.stages]
+        set_priors = [F.interpolate(input=stage(feats), size=(h, w), mode='bilinear', align_corners=False) for stage in self.stages]
         priors = set_priors + [feats]
         bottle = self.bottleneck(torch.cat(priors, 1))
         return self.relu(bottle)
 
 
 class PSPUpsample(nn.Module):
-    """
-    Upsample module in PSP network
-    """
-
     def __init__(self, x_channels, in_channels, out_channels):
         super().__init__()
         self.conv = nn.Sequential(
@@ -72,20 +69,16 @@ class PSPUpsample(nn.Module):
 
 
 class RefinementModule(nn.Module):
-    """
-    Main refinement module for segmentation masks
-    """
-
     def __init__(self):
         super().__init__()
 
         self.feats = extractors.resnet50()
         self.psp = PSPModule(2048, 1024, (1, 2, 3, 6))
 
-        self.up_1 = PSPUpsample(1024, 1024 + 256, 512)
-        self.up_2 = PSPUpsample(512, 512 + 64, 256)
-        self.up_3 = PSPUpsample(256, 256 + 3, 32)
-
+        self.up_1 = PSPUpsample(1024, 1024+256, 512)
+        self.up_2 = PSPUpsample(512, 512+64, 256)
+        self.up_3 = PSPUpsample(256, 256+3, 32)
+        
         self.final_28 = nn.Sequential(
             nn.Conv2d(1024, 32, kernel_size=1),
             nn.ReLU(inplace=True),
@@ -98,13 +91,11 @@ class RefinementModule(nn.Module):
             nn.Conv2d(32, 1, kernel_size=1),
         )
 
-        self.final_11 = nn.Conv2d(32 + 3, 32, kernel_size=1)
+        self.final_11 = nn.Conv2d(32+3, 32, kernel_size=1)
         self.final_21 = nn.Conv2d(32, 1, kernel_size=1)
 
     def forward(self, x, seg, inter_s8=None, inter_s4=None):
-        """
-        Forward pass with three iterations of refinement
-        """
+
         images = {}
 
         """
@@ -113,7 +104,7 @@ class RefinementModule(nn.Module):
         if inter_s8 is None:
             p = torch.cat((x, seg, seg, seg), 1)
 
-            f, f_1, f_2 = self.feats(p)
+            f, f_1, f_2 = self.feats(p) 
             p = self.psp(f)
 
             inter_s8 = self.final_28(p)
@@ -131,7 +122,7 @@ class RefinementModule(nn.Module):
         if inter_s4 is None:
             p = torch.cat((x, seg, r_inter_tanh_s8, r_inter_tanh_s8), 1)
 
-            f, f_1, f_2 = self.feats(p)
+            f, f_1, f_2 = self.feats(p) 
             p = self.psp(f)
             inter_s8_2 = self.final_28(p)
             r_inter_s8_2 = F.interpolate(inter_s8_2, scale_factor=8, mode='bilinear', align_corners=False)
@@ -156,7 +147,7 @@ class RefinementModule(nn.Module):
         """
         p = torch.cat((x, seg, r_inter_tanh_s8_2, r_inter_tanh_s4), 1)
 
-        f, f_1, f_2 = self.feats(p)
+        f, f_1, f_2 = self.feats(p) 
         p = self.psp(f)
         inter_s8_3 = self.final_28(p)
         r_inter_s8_3 = F.interpolate(inter_s8_3, scale_factor=8, mode='bilinear', align_corners=False)
@@ -166,6 +157,7 @@ class RefinementModule(nn.Module):
         r_inter_s4_2 = F.interpolate(inter_s4_2, scale_factor=4, mode='bilinear', align_corners=False)
         p = self.up_2(p, f_1)
         p = self.up_3(p, x)
+
 
         """
         Final output

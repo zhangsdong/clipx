@@ -38,58 +38,34 @@ clipx -i input.jpg -o output.png
 clipx -i input.jpg -o output.png --fast
 ```
 
-- 仅使用U2Net进行处理：
-
-```bash
-clipx -i input.jpg -o output.png -m u2net
-```
-
-
-- 启用调试日志：
-
-```bash
-clipx -i input.jpg --debug
-```
-
 ---
 
 ## Python API 使用示例
 
 ```python
-from clipx import remove_background
+from PIL import Image
+from clipx import remove
 
-result = remove_background("photo.jpg")
+# 测试 API
+img = Image.open("tests/leaves-8273504_1920.jpg")
+result = remove(img)
+result.save("api_test_result.png")
 
-print(f"Image with background removed saved to: {result}")
+# 只获取掩码
+mask = remove(img, only_mask=True)
+mask.save("mask_only.png")
 ```
 
 ---
 
-## 高级用法
-
-### 日志配置
-
-你可以配置日志级别：
-
-```python
-from clipx import set_log_level, enable_console_logging
-import logging
-
-# 启用控制台日志
-enable_console_logging()
-
-# 设置日志级别
-set_log_level(logging.DEBUG)
-```
-
----
 
 ## 致谢与代码来源
 
-`clipx` 中的图像分割模型基于以下项目：
+本项目使用了以下开源项目的代码：
 
 - U2Net: [U^2-Net: Going Deeper with Nested U-Structure for Salient Object Detection](https://github.com/xuebinqin/U-2-Net)
 - CascadePSP: [CascadePSP: Toward Class-Agnostic and Very High-Resolution Segmentation via Global and Local Refinement](https://github.com/hkchengrex/CascadePSP)
+- 特别感谢 [rembg](https://github.com/danielgatis/rembg) 项目对项目结构和实现方法的启发。
 
 感谢这些原始项目作者的工作和贡献。
 

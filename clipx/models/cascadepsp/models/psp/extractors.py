@@ -1,3 +1,9 @@
+"""
+This module contains code modified from the CascadePSP project
+The implementation is based on the segmentation-refinement code
+Original code: https://github.com/hkchengrex/CascadePSP
+"""
+
 from collections import OrderedDict
 import math
 
@@ -7,13 +13,11 @@ import torch.nn.functional as F
 
 
 def conv3x3(in_planes, out_planes, stride=1, dilation=1):
-    """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=dilation, dilation=dilation, bias=False)
 
 
 class Bottleneck(nn.Module):
-    """Bottleneck module for ResNet"""
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, dilation=1):
@@ -53,7 +57,6 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    """ResNet backbone for feature extraction"""
     def __init__(self, block, layers=(3, 4, 23, 3)):
         self.inplanes = 64
         super(ResNet, self).__init__()
@@ -106,6 +109,6 @@ class ResNet(nn.Module):
 
 
 def resnet50():
-    """Constructs a ResNet-50 model for feature extraction"""
     model = ResNet(Bottleneck, [3, 4, 6, 3])
     return model
+

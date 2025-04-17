@@ -34,9 +34,10 @@ def main(input, output, mask, no_refine, device, fast):
         except Exception as e:
             sys.exit(f"Error: Cannot create output directory: {e}")
 
-    from .core import remove
-
     try:
+        # Only import remove function when actually processing an image
+        from .core import remove
+
         result = remove(
             input,
             only_mask=mask,

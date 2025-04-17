@@ -46,8 +46,9 @@ def remove(
     mask = predictor.predict_mask(image)
 
     # Convert to numpy arrays for processing
-    img_np = np.array(image)
-    mask_np = np.array(mask)
+    # Ensure image is in RGB format for processing
+    img_np = np.array(image.convert("RGB"))
+    mask_np = np.array(mask.convert("L"))
 
     # Step 2: Refine mask if requested
     if refine_mask:
@@ -68,7 +69,21 @@ def remove(
 
     # Step 3: Create transparent image
     refined_mask_binary = (refined_mask > 127).astype(np.uint8)
-    img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+    # Use the original image format for the final result
+    img_original = np.array(image)
+
+    # Handle different image formats
+    if len(img_original.shape) == 2:  # Grayscale
+        img_cv = cv2.cvtColor(img_original, cv2.COLOR_GRAY2BGR)
+    elif img_original.shape[2] == 4:  # RGBA
+        img_cv = cv2.cvtColor(img_original, cv2.COLOR_RGBA2BGR)
+    elif img_original.shape[2] == 3:  # RGB
+        img_cv = cv2.cvtColor(img_original, cv2.COLOR_RGB2BGR)
+    else:
+        # Fallback for other formats
+        img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
     foreground = cv2.bitwise_and(img_cv, img_cv, mask=refined_mask_binary)
     result_with_alpha = np.dstack((foreground, refined_mask_binary * 255))
     result = Image.fromarray(cv2.cvtColor(result_with_alpha, cv2.COLOR_BGRA2RGBA))

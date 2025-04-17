@@ -1,19 +1,18 @@
-__version__ = '0.4.2'
+__version__ = '0.4.3'
 
 class LazyLoader:
-    def __init__(self, lib_name):
-        self.lib_name = lib_name
-        self._lib = None
+    def __init__(self, module_name, package):
+        self.module_name = module_name
+        self.package = package
+        self._module = None
 
     def __getattr__(self, name):
-        if self._lib is None:
+        if self._module is None:
             import importlib
-            self._lib = importlib.import_module(self.lib_name)
-        return getattr(self._lib, name)
+            self._module = importlib.import_module(self.module_name, self.package)
+        return getattr(self._module, name)
 
-
-core = LazyLoader('.core')
-
+core = LazyLoader('.core', 'clipx')
 
 def remove(*args, **kwargs):
     return core.remove(*args, **kwargs)
